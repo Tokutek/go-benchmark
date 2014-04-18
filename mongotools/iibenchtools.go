@@ -2,7 +2,7 @@ package mongotools
 
 import (
 	"fmt"
-	"github.com/zkasheff/tokubenchmark"
+	"github.com/Tokutek/tokubenchmark"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"math/rand"

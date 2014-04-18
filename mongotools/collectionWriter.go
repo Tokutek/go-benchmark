@@ -3,7 +3,7 @@ package mongotools
 import (
 	"flag"
 	//"fmt"
-	"github.com/zkasheff/tokubenchmark"
+	"github.com/Tokutek/tokubenchmark"
 	"labix.org/v2/mgo"
 	"log"
 )

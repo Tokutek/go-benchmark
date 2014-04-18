@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"github.com/zkasheff/tokubenchmark"
-	"github.com/zkasheff/tokubenchmark/mongotools"
+	"github.com/Tokutek/tokubenchmark"
+	"github.com/Tokutek/tokubenchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
 	"math/rand"
