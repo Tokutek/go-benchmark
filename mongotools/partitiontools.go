@@ -10,6 +10,7 @@ import (
 
 type indvPartitionInfo struct {
 	Id         uint64    `bson:"_id"`
+	max        bson.M    `bson:"max"`
 	CreateTime time.Time `bson:"createTime"`
 }
 
