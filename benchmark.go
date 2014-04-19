@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// Current struct used to transfer results from a BenchmarkWorkItem
+// to a BenchmarkResultManager. Note that he channel a BenchmarkWorkItem
+// has as an input parameter to DoWork() is of this type.
 type BenchmarkStats struct {
 	Inserts    uint64
 	Deletes    uint64
@@ -16,6 +19,7 @@ type BenchmarkStats struct {
 	Errors     uint64
 }
 
+// An interface that defines work to be run on a thread.
 type BenchmarkWorkItem interface {
 	DoWork(c chan BenchmarkStats)
 	Close()
