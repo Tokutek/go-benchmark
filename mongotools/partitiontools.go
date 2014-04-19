@@ -20,7 +20,9 @@ type partitionInfo struct {
 	Ok            int                 `bson:"ok"`
 }
 
-// implements BenchmarkWorkItem
+// a BenchmarkWorkItem used to add partitions to a partitioned
+// collection. To work, -partition=true must be used when creating
+// the benchmark, otherwise, this workitem will spit errors.
 type AddPartitionWorkItem struct {
 	Session  *mgo.Session
 	Dbname   string
@@ -28,6 +30,10 @@ type AddPartitionWorkItem struct {
 	Interval time.Duration // interval between partition adds
 }
 
+// checks the createTime of the last partition, and if it happened
+// longer than Interval defined in AddPartitionWorkItem, then it adds a partition.
+// For example, if a.Interval is set to one hour, and the last partition was created
+// 61 minutes ago, this function will add a partition
 func (a AddPartitionWorkItem) DoWork(c chan tokubenchmark.BenchmarkStats) {
 	db := a.Session.DB(a.Dbname)
 	coll := db.C(a.Collname)
@@ -52,11 +58,14 @@ func (a AddPartitionWorkItem) DoWork(c chan tokubenchmark.BenchmarkStats) {
 	}
 }
 
+// closes the session used to add partitions
 func (a AddPartitionWorkItem) Close() {
 	a.Session.Close()
 }
 
-// implements BenchmarkWorkItem
+// a BenchmarkWorkItem used to drop partitions of a partitioned
+// collection. To work, -partition=true must be used when creating
+// the benchmark, otherwise, this workitem will spit errors.
 type DropPartitionWorkItem struct {
 	Session  *mgo.Session
 	Dbname   string
@@ -64,6 +73,10 @@ type DropPartitionWorkItem struct {
 	Interval time.Duration // interval between partition adds
 }
 
+// checks the createTime of the first partition, and if it happened
+// longer than Interval defined in DropPartitionWorkItem, then it drops the first partition.
+// For example, if a.Interval is set to six hours, and the first partition was created
+// seven hours ago, this function will drop the first partition
 func (a DropPartitionWorkItem) DoWork(c chan tokubenchmark.BenchmarkStats) {
 	db := a.Session.DB(a.Dbname)
 	coll := db.C(a.Collname)
