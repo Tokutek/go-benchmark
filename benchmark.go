@@ -21,28 +21,56 @@ type BenchmarkStats struct {
 
 // An interface that defines work to be run on a thread.
 type BenchmarkWorkItem interface {
+	// While the benchmark is running, DoWork is called repeatedly.
+	// The funtion is responsible for sending results over the channel.
 	DoWork(c chan BenchmarkStats)
+	// Cleanup any state needed before closing the benchmark. Typically,
+	// this closes a session that a mongodb benchmark would use
 	Close()
 }
 
+// an interface responsible for reporting results of the benchmark as it is running
 type BenchmarkResultManager interface {
+	// Method called once a second that is responsible for printing any
+	// any results the benchmark writer sees fit
 	PrintResults()
+	// Called at the end of the benchmark to give the benchmark writer
+	// an opportunity to print a summary of the entire run.
 	PrintFinalResults()
+	// Method responsible for aggregating results that an individual
+	// BenchmarkWorkItem sends over the channel provided in BenchmarkWorkItem.DoWork
 	RegisterIntermedieteResult(r BenchmarkStats)
 }
 
+// Defines information about what a background thread's work.
+//
 type BenchmarkWorkInfo struct {
-	WorkItem          BenchmarkWorkItem
-	OpsPerInterval    uint64
+	// The workitem that is to being run throughout the benchmark
+	WorkItem BenchmarkWorkItem
+	// The maximum number of operations to run within BenchmarkWorkInfo.IntervalInSeconds
+	// 0 means unlimited.
+	OpsPerInterval uint64
+	// Defines the period during for BenchmarkWorkItem.OpsPerInterval. So, for example,
+	// if OpsPerInterval is set to 100, and IntervalInSeconds is set to 1, then
+	// this thread will do at most 100 operations per second.
+	// 0 means there is no interval, and that WorkItem may run as often as possible
 	IntervalInSeconds uint64
-	MaxOps            uint64
+	// The maximum number of operations this thread may run. This is used for benchmarks
+	// that are designed to run a certain amount of work as opposed to run for a certain
+	// amount of time. If this value is 0, and implies that RunBenchmark was run with
+	// a non-zero duration. If this value is > 0, that implies the benchmark is designed
+	// to execute some finite task, and that RunBenchmark was run with a duration of 0
+	MaxOps uint64
 }
 
+// struct used to gate operations for a BenchmarkWorkInfo
 type operationGater struct {
 	t0      time.Time
 	currOps uint64
 }
 
+// helper function to ensure we honor w.OpsPerInterval and w.IntervalInSeconds.
+// Will sleep for the necessary time to ensure that the operations are properly gated
 func (o *operationGater) gateOperations(w BenchmarkWorkInfo) {
 	o.currOps++
 	period := time.Duration(w.IntervalInSeconds) * time.Second
@@ -60,6 +88,8 @@ func (o *operationGater) gateOperations(w BenchmarkWorkInfo) {
 	return
 }
 
+// run a BenchmarkWorkInfo repeatedly until we get a message over the
+// quitChannel telling us to exit
 func runTimeBasedWorker(w BenchmarkWorkInfo, c chan BenchmarkStats, quitChannel chan int, benchmarkDone *sync.WaitGroup) {
 	// this should never happen, as we've already called verifyWorkItems,
 	// but it doesn't hurt
@@ -80,6 +110,9 @@ func runTimeBasedWorker(w BenchmarkWorkInfo, c chan BenchmarkStats, quitChannel 
 	}
 }
 
+// run a BenchmarkWorkInfo for a finite number of operations. There is no way
+// to get this function to exit early. It exits once the w.WorkItem has
+// been executed w.MaxOps times
 func runFiniteWorker(w BenchmarkWorkInfo, c chan BenchmarkStats, benchmarkDone *sync.WaitGroup) {
 	// this should never happen, as we've already called verifyWorkItems,
 	// but it doesn't hurt
@@ -95,6 +128,7 @@ func runFiniteWorker(w BenchmarkWorkInfo, c chan BenchmarkStats, benchmarkDone *
 	}
 }
 
+// background thread responsible for accumulating results that WorkItems send
 func registerWrites(r BenchmarkResultManager, c chan BenchmarkStats, quitChannel chan int, benchmarkDone *sync.WaitGroup) {
 	defer benchmarkDone.Done()
 	for {
@@ -107,6 +141,8 @@ func registerWrites(r BenchmarkResultManager, c chan BenchmarkStats, quitChannel
 	}
 }
 
+// background thread responsible for printing results once a second, until the benchmark ends,
+// at which point will print final results.
 func printWrites(r BenchmarkResultManager, quitChannel chan int, benchmarkDone *sync.WaitGroup) {
 	defer benchmarkDone.Done()
 	for {
@@ -139,6 +175,13 @@ func verifyWorkItems(workItems []BenchmarkWorkInfo, d time.Duration) {
 	}
 }
 
+// runs a benchmark by having each member of workItems run its BenchmarkWorkItem repeatedly
+// in a background thread. The number of threads doing work is equal to len(workItems).
+// So, for example, if iibench is running with 4 writer threads and two query threads, then
+// workItems will have six elements, four threads for the inserts, and two threads for queries.
+// If d > 0, the benchmark will run for the time defined by d. If d is 0, then the benchmark is designed
+// to finish a finite amount of work (like loading 10M documents into a collection), and not designed
+// to run for a certain amount of time. As a result, each element of workItems will have MaxOps > 0.
 func RunBenchmark(res BenchmarkResultManager, workItems []BenchmarkWorkInfo, d time.Duration) {
 	verifyWorkItems(workItems, d)
 	numWorkers := len(workItems)
