@@ -63,7 +63,7 @@ func main() {
 	}
 	copiedSession := session.Copy()
 	copiedSession.SetSafe(&mgo.Safe{})
-	var addPartitionItem = mongotools.AddPartitionWorkItem{copiedSession, dbname, collname, 10 * time.Second}
+	var addPartitionItem = mongotools.AddPartitionWorkItem{copiedSession, dbname, currCollectionString, 10 * time.Second}
 	workers = append(workers, tokubenchmark.BenchmarkWorkInfo{addPartitionItem, 1, 1, 0})
 	// have this go for a looooooong time
 	tokubenchmark.RunBenchmark(res, workers, time.Duration(1<<32)*time.Second)
