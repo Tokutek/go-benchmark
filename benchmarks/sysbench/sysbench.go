@@ -74,9 +74,8 @@ func (s SysbenchTransaction) DoWork(c chan tokubenchmark.BenchmarkStats) {
 	coll := db.C(mongotools.GetCollectionString(s.Collname, int(collectionIndex)))
 	var result tokubenchmark.BenchmarkStats
 
-	var isTokuMX bool
 	transactionBegan := false
-	if isTokuMX {
+	if mongotools.IsTokuMX {
 		var commandResult bson.M
 		err := db.Run(bson.M{"beginTransaction": 1}, &commandResult)
 		if err != nil {
