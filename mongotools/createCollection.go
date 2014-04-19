@@ -15,6 +15,8 @@ var basementSize *int = flag.Int("basementSize", 64*1024, "specify the basement 
 var compression *string = flag.String("compression", zlib, "specify compression type of all indexes in the collection. Only takes affect if -create is true. Can be \"zlib\", \"lzma\", \"quicklz\", or \"none\"")
 var partition *bool = flag.Bool("partition", false, "whether to partition the collections on create")
 
+// states if we are running on TokuMX or MongoDB. This parameter is only
+// valid we have run MakeCollections.
 var IsTokuMX bool = false
 
 //////////////////////////////////////////////////////////////////
@@ -23,10 +25,14 @@ var IsTokuMX bool = false
 //
 // used to run the create collection command
 
+// return the name for the ith collection (indexed from 0) that was created
+// via MakeCollections
 func GetCollectionString(collname string, i int) string {
 	return fmt.Sprintf("%s_%d", collname, i)
 }
 
+// options for creating a collection
+// TODO: add an option for primary key
 type createCollOptions struct {
 	Coll         string "create"
 	Compression  string "compression,omitempty"
@@ -61,6 +67,7 @@ func getDefaultCreateOptions() (ret tokuMXCreateOptions) {
 }
 
 // true if TokuMX, false if MongoDB
+// this is called in MakeCollections
 func setIsTokuMX(db *mgo.Database) {
 	var result bson.M
 	err := db.Run("buildInfo", &result)
@@ -76,6 +83,7 @@ func setIsTokuMX(db *mgo.Database) {
 	IsTokuMX = true
 }
 
+// creates a collection in MongoDB
 func createMongoCollection(collname string, db *mgo.Database) {
 	fmt.Println("creating collection: ", collname)
 	var result bson.M
@@ -86,6 +94,7 @@ func createMongoCollection(collname string, db *mgo.Database) {
 	}
 }
 
+// creates a collection in TokuMX
 func createTokuCollection(collname string, db *mgo.Database, options tokuMXCreateOptions) {
 	fmt.Println("creating collection ", collname)
 	var result bson.M
@@ -101,6 +110,9 @@ func createTokuCollection(collname string, db *mgo.Database, options tokuMXCreat
 	}
 }
 
+// returns true if the collection already exists. Does so
+// by querying db.system.namespaces to see if the collection
+// is listed
 func collectionExists(s *mgo.Session, dbname string, collname string) bool {
 	db := s.DB(dbname)
 	sysNamespaces := db.C("system.namespaces")
@@ -113,6 +125,8 @@ func collectionExists(s *mgo.Session, dbname string, collname string) bool {
 	return n > 0
 }
 
+// Creates a collection, but first checks if the collection exists. If it does,
+// we log a fatal error and end the program
 func createCollection(s *mgo.Session, dbname string, collname string, tokuOptions tokuMXCreateOptions, indexes []mgo.Index) {
 	db := s.DB(dbname)
 	coll := db.C(collname)
@@ -132,6 +146,16 @@ func createCollection(s *mgo.Session, dbname string, collname string, tokuOption
 	}
 }
 
+// Either creates or ensures the existence of the collections to be used in the benchmark. If the create
+// flag is set to true (which is defined in this file), then this function creates the collections specified
+// as follows. If collname is "coll", and dbname is "dbb", and numCollections is 2, then the collections
+// "dbb.coll_0" and "dbb.coll_1" are created. Additionally, if we are creating these collections,
+// then the indexes specified in the last parameter are created.
+//
+// If either of these collections already exist, then a fatal
+// error is logged and the program ends. If the create flag is set to false, then this function
+// ensures that the specified collections ("dbb.coll_0" and "dbb.coll_1" in the example) already exist.
+// We do NOT verify that the indexes passed into this function match the existing indexes of the collection
 func MakeCollections(collname string, dbname string, numCollections int, session *mgo.Session, indexes []mgo.Index) {
 	if !validCompressionType(*compression) {
 		log.Fatal("invalid value for compression: ", *compression)
@@ -148,6 +172,9 @@ func MakeCollections(collname string, dbname string, numCollections int, session
 	}
 }
 
+// Ensures that the benchmark was started (and MakeCollections will be called) with the assumption
+// that the collections are not to be created. Currently used in sysbench, where we assume the benchmark
+// is run on preloaded collections.
 func VerifyNotCreating() {
 	if *doCreate {
 		log.Fatal("This application should not be creating collections, it should be using existing collections, -create must be false")
