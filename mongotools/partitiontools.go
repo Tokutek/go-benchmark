@@ -32,7 +32,7 @@ func (a AddPartitionWorkItem) DoWork(c chan tokubenchmark.BenchmarkStats) {
 	db := a.Session.DB(a.Dbname)
 	coll := db.C(a.Collname)
 	var result partitionInfo
-	err := db.Run(bson.M{"getPartitionInfo": coll.FullName}, &result)
+	err := db.Run(bson.M{"getPartitionInfo": coll.Name}, &result)
 	if err == nil {
 		var numPartitions uint64
 		numPartitions = result.NumPartitions
