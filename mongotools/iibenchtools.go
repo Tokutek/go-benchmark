@@ -24,7 +24,7 @@ const (
 //
 
 // what a document looks like
-type IIBenchDoc struct {
+type iiBenchDoc struct {
 	DateAndTime    time.Time "ts"
 	CashRegisterID int32     "crid"
 	CustomerID     int32     "cid"
@@ -62,7 +62,7 @@ func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
 		for i := 0; i < len(charFields); i++ {
 			charFields[i] = rand_str(generator.CharFieldLength, generator.RandSource)
 		}
-		return IIBenchDoc{
+		return iiBenchDoc{
 			DateAndTime:    dateAndTime,
 			CashRegisterID: cashRegisterID,
 			CustomerID:     customerID,
@@ -70,7 +70,7 @@ func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
 			Price:          price,
 			CharFields:     charFields}
 	}
-	return IIBenchDoc{
+	return iiBenchDoc{
 		DateAndTime:    dateAndTime,
 		CashRegisterID: cashRegisterID,
 		CustomerID:     customerID,
@@ -78,7 +78,7 @@ func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
 		Price:          price}
 }
 
-// implements BenchmarkWorkItem
+// a BenchmarkWorkItem to run iibench queries
 type IIBenchQuery struct {
 	Session          *mgo.Session
 	Dbname           string
@@ -141,6 +141,7 @@ func (r IIBenchQuery) Close() {
 }
 
 // implements BenchmarkResultManager
+// used to print results of an iibench run
 type IIBenchResult struct {
 	NumInserts          uint64
 	NumQueries          uint64
