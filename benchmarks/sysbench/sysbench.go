@@ -229,8 +229,6 @@ func main() {
 	numSeconds := flag.Uint64("numSeconds", 5, "number of seconds the benchmark is to run.")
 	numMaxTPS := flag.Uint64("numMaxTPS", 0, "number of maximum transactions to process. If 0, then unlimited")
 
-	numTPSPerThread := (*numMaxTPS) / (uint64(*numThreads))
-
 	// for the BenchmarkWorkItem
 	oltpRangeSize := flag.Uint("oltpRangeSize", 100, "size of range queries in each transaction")
 	oltpPointSelects := flag.Uint("oltpPointSelects", 10, "number of point queries by _id per transaction")
@@ -241,6 +239,8 @@ func main() {
 	oltpIndexUpdates := flag.Uint("oltpIndexUpdates", 1, "number of updates on an indexed field per transaction")
 	oltpNonIndexUpdates := flag.Uint("oltpNonIndexUpdates", 1, "number of updates on a non-indexed field per transaction")
 	flag.Parse()
+
+	numTPSPerThread := (*numMaxTPS) / (uint64(*numThreads))
 
 	session, err := mgo.Dial(*host)
 	if err != nil {
@@ -279,7 +279,7 @@ func main() {
 			*numCollections,
 			*readOnly,
 			*numMaxInserts}
-		var currInfo tokubenchmark.BenchmarkWorkInfo = tokubenchmark.BenchmarkWorkInfo{currItem, numTPSPerThread, 0, 0}
+		var currInfo tokubenchmark.BenchmarkWorkInfo = tokubenchmark.BenchmarkWorkInfo{currItem, numTPSPerThread, 1, 0}
 		workers = append(workers, currInfo)
 	}
 	res := new(SysbenchResult)
