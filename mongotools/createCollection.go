@@ -9,15 +9,13 @@ import (
 )
 
 // command line variables for creating collections
-var doCreate *bool = flag.Bool("create", false, "whether the test should create the collection")
-var nodeSize *int = flag.Int("nodeSize", 4*1024*1024, "specify the node size of all indexes in the collection, only takes affect if -create is true")
-var basementSize *int = flag.Int("basementSize", 64*1024, "specify the basement node size of all indexes in the collection, only takes affect if -create is true")
-var compression *string = flag.String("compression", zlib, "specify compression type of all indexes in the collection. Only takes affect if -create is true. Can be \"zlib\", \"lzma\", \"quicklz\", or \"none\"")
-var partition *bool = flag.Bool("partition", false, "whether to partition the collections on create")
-
-// states if we are running on TokuMX or MongoDB. This parameter is only
-// valid we have run MakeCollections.
-var IsTokuMX bool = false
+var (
+	doCreate     = flag.Bool("create", false, "whether the test should create the collection")
+	nodeSize     = flag.Int("nodeSize", 4*1024*1024, "specify the node size of all indexes in the collection, only takes affect if -create is true")
+	basementSize = flag.Int("basementSize", 64*1024, "specify the basement node size of all indexes in the collection, only takes affect if -create is true")
+	compression  = flag.String("compression", zlib, "specify compression type of all indexes in the collection. Only takes affect if -create is true. Can be \"zlib\", \"lzma\", \"quicklz\", or \"none\"")
+	partition    = flag.Bool("partition", false, "whether to partition the collections on create")
+)
 
 //////////////////////////////////////////////////////////////////
 //
@@ -64,23 +62,6 @@ func getDefaultCreateOptions() (ret tokuMXCreateOptions) {
 	ret.NodeSize = 1 << 22     //4MB
 	ret.BasementSize = 1 << 16 //64KB
 	return ret
-}
-
-// true if TokuMX, false if MongoDB
-// this is called in MakeCollections
-func setIsTokuMX(db *mgo.Database) {
-	var result bson.M
-	err := db.Run("buildInfo", &result)
-	if err != nil {
-		log.Fatal("Error when getting build info", err)
-	}
-	fmt.Println("here")
-	if result["tokumxVersion"] == nil {
-		log.Println("indexing technology: MongoDB")
-		IsTokuMX = false
-	}
-	log.Println("indexing technology: TokuMX")
-	IsTokuMX = true
 }
 
 // creates a collection in MongoDB
@@ -133,7 +114,7 @@ func createCollection(s *mgo.Session, dbname string, collname string, tokuOption
 	if collectionExists(s, dbname, collname) {
 		log.Fatal(coll.FullName, " exists, found in system.namespaces, run without -create")
 	}
-	if IsTokuMX {
+	if IsTokuMX(db) {
 		createTokuCollection(collname, db, tokuOptions)
 	} else {
 		createMongoCollection(collname, db)
@@ -160,8 +141,6 @@ func MakeCollections(collname string, dbname string, numCollections int, session
 	if !validCompressionType(*compression) {
 		log.Fatal("invalid value for compression: ", *compression)
 	}
-	db := session.DB(dbname)
-	setIsTokuMX(db)
 	for i := 0; i < numCollections; i++ {
 		currCollectionString := GetCollectionString(collname, i)
 		if *doCreate {

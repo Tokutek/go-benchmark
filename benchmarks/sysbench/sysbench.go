@@ -75,7 +75,7 @@ func (s SysbenchTransaction) DoWork(c chan benchmark.Stats) {
 	var result benchmark.Stats
 
 	transactionBegan := false
-	if mongotools.IsTokuMX {
+	if mongotools.IsTokuMX(s.Session) {
 		var commandResult bson.M
 		err := db.Run(bson.M{"beginTransaction": 1}, &commandResult)
 		if err != nil {
