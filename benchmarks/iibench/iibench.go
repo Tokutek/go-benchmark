@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"github.com/Tokutek/tokubenchmark"
-	"github.com/Tokutek/tokubenchmark/mongotools"
+	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
 	"math/rand"
@@ -54,7 +54,7 @@ func main() {
 	mongotools.MakeCollections(*collname, *dbname, *numCollections, session, indexes)
 	// at this point we have created the collection, now run the benchmark
 	res := new(mongotools.IIBenchResult)
-	workers := make([]tokubenchmark.WorkInfo, 0, *numWriters+*numQueryThreads)
+	workers := make([]benchmark.WorkInfo, 0, *numWriters+*numQueryThreads)
 	for i := 0; i < *numWriters; i++ {
 		var gen *mongotools.IIBenchDocGenerator = new(mongotools.IIBenchDocGenerator)
 		// we want each worker to have it's own random number generator
@@ -77,8 +77,8 @@ func main() {
 			time.Now(),
 			*queryResultLimit,
 			0}
-		workInfo := tokubenchmark.WorkInfo{query, *queriesPerInterval, *queryInterval, 0}
+		workInfo := benchmark.WorkInfo{query, *queriesPerInterval, *queryInterval, 0}
 		workers = append(workers, workInfo)
 	}
-	tokubenchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
+	benchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
 }

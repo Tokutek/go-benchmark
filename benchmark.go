@@ -1,4 +1,4 @@
-package tokubenchmark
+package benchmark
 
 import (
 	"log"

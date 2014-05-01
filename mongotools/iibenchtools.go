@@ -2,7 +2,7 @@ package mongotools
 
 import (
 	"fmt"
-	"github.com/Tokutek/tokubenchmark"
+	"github.com/Tokutek/go-benchmark"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"math/rand"
@@ -89,7 +89,7 @@ type IIBenchQuery struct {
 	NumQueriesSoFar  uint64
 }
 
-func (r IIBenchQuery) DoWork(c chan tokubenchmark.Stats) {
+func (r IIBenchQuery) DoWork(c chan benchmark.Stats) {
 	db := r.Session.DB(r.Dbname)
 	coll := db.C(r.Collname)
 	customerID := r.RandSource.Int31n(MaxNumCustomers)
@@ -133,7 +133,7 @@ func (r IIBenchQuery) DoWork(c chan tokubenchmark.Stats) {
 	for iter.Next(&result) {
 	}
 	r.NumQueriesSoFar++
-	c <- tokubenchmark.Stats{Queries: 1}
+	c <- benchmark.Stats{Queries: 1}
 }
 
 func (r IIBenchQuery) Close() {
@@ -161,7 +161,7 @@ func (r *IIBenchResult) PrintFinalResults() {
 	fmt.Println("Benchmark done. Inserts: ", r.NumInserts, ", Queries: ", r.NumQueries)
 }
 
-func (r *IIBenchResult) RegisterIntermedieteResult(result tokubenchmark.Stats) {
+func (r *IIBenchResult) RegisterIntermedieteResult(result benchmark.Stats) {
 	r.NumInserts += result.Inserts
 	r.NumQueries += result.Queries
 }

@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/Tokutek/tokubenchmark"
-	"github.com/Tokutek/tokubenchmark/mongotools"
+	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"log"
@@ -68,11 +68,11 @@ func runQuery(filter bson.M, projection bson.M, coll *mgo.Collection) {
 	}
 }
 
-func (s SysbenchTransaction) DoWork(c chan tokubenchmark.Stats) {
+func (s SysbenchTransaction) DoWork(c chan benchmark.Stats) {
 	db := s.Session.DB(s.Dbname)
 	collectionIndex := s.RandSource.Int31n(int32(s.NumCollections))
 	coll := db.C(mongotools.GetCollectionString(s.Collname, int(collectionIndex)))
-	var result tokubenchmark.Stats
+	var result benchmark.Stats
 
 	transactionBegan := false
 	if mongotools.IsTokuMX {
@@ -210,7 +210,7 @@ func (r *SysbenchResult) PrintFinalResults() {
 	fmt.Println("Benchmark done. Transactions: ", r.NumTransactions, ", Errors: ", r.NumErrors)
 }
 
-func (r *SysbenchResult) RegisterIntermedieteResult(result tokubenchmark.Stats) {
+func (r *SysbenchResult) RegisterIntermedieteResult(result benchmark.Stats) {
 	r.NumTransactions += result.Operations
 	r.NumErrors += result.Errors
 }
@@ -263,14 +263,14 @@ func main() {
 		*oltpDistinctRanges,
 		*oltpIndexUpdates,
 		*oltpNonIndexUpdates}
-	workers := make([]tokubenchmark.WorkInfo, 0, *numThreads)
+	workers := make([]benchmark.WorkInfo, 0, *numThreads)
 	var i uint
 	for i = 0; i < *numThreads; i++ {
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
 		// allows transactions to be run on this session
 		copiedSession.SetMode(mgo.Strong, true)
-		var currItem tokubenchmark.WorkItem = SysbenchTransaction{
+		var currItem benchmark.WorkItem = SysbenchTransaction{
 			info,
 			copiedSession,
 			*dbname,
@@ -279,10 +279,10 @@ func main() {
 			*numCollections,
 			*readOnly,
 			*numMaxInserts}
-		var currInfo tokubenchmark.WorkInfo = tokubenchmark.WorkInfo{currItem, numTPSPerThread, 1, 0}
+		var currInfo benchmark.WorkInfo = benchmark.WorkInfo{currItem, numTPSPerThread, 1, 0}
 		workers = append(workers, currInfo)
 	}
 	res := new(SysbenchResult)
 	fmt.Println("passing in ", *numSeconds)
-	tokubenchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
+	benchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
 }

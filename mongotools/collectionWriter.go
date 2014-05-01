@@ -3,7 +3,7 @@ package mongotools
 import (
 	"flag"
 	//"fmt"
-	"github.com/Tokutek/tokubenchmark"
+	"github.com/Tokutek/go-benchmark"
 	"labix.org/v2/mgo"
 	"log"
 )
@@ -28,7 +28,7 @@ type collectionWriter struct {
 	Gen           DocGenerator
 }
 
-func (w collectionWriter) DoWork(c chan tokubenchmark.Stats) {
+func (w collectionWriter) DoWork(c chan benchmark.Stats) {
 	var numInserted uint64
 	docs := make([]interface{}, w.DocsPerInsert)
 	// if docsPerInsert is less than 50, we want
@@ -45,7 +45,7 @@ func (w collectionWriter) DoWork(c chan tokubenchmark.Stats) {
 		}
 		numInserted += w.DocsPerInsert
 	}
-	c <- tokubenchmark.Stats{Inserts: numInserted}
+	c <- benchmark.Stats{Inserts: numInserted}
 }
 
 func (w collectionWriter) Close() {
@@ -59,7 +59,7 @@ func (w collectionWriter) Close() {
 // do (with 0 meaning unlimited and that the benchmark is bounded by time), and a WorkInfo is returned
 // This file exports flags "docsPerInsert" that defines the batching of the writer, "insertsPerInterval" and "insertInterval"
 // to define whether there should be any gating.
-func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread uint64) tokubenchmark.WorkInfo {
+func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread uint64) benchmark.WorkInfo {
 	copiedSession := session.Copy()
 	copiedSession.SetSafe(&mgo.Safe{})
 	db := copiedSession.DB(dbname)
@@ -88,6 +88,6 @@ func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string,
 		opsPerInterval = *insertsPerInterval / *docsPerInsert
 	}
 	log.Println("opsPerInterval ", opsPerInterval, " numOps ", numOps)
-	workInfo := tokubenchmark.WorkInfo{writer, opsPerInterval, *insertInterval, numOps}
+	workInfo := benchmark.WorkInfo{writer, opsPerInterval, *insertInterval, numOps}
 	return workInfo
 }

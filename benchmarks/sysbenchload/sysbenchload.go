@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"github.com/Tokutek/tokubenchmark"
-	"github.com/Tokutek/tokubenchmark/mongotools"
+	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
 	"math/rand"
@@ -53,7 +53,7 @@ func (generator *SysbenchDocGenerator) MakeDoc() interface{} {
 
 // implements WorkItem
 type SysbenchWriter struct {
-	writers []tokubenchmark.WorkInfo
+	writers []benchmark.WorkInfo
 }
 
 func (w SysbenchWriter) Close() {
@@ -62,7 +62,7 @@ func (w SysbenchWriter) Close() {
 	}
 }
 
-func (w SysbenchWriter) DoWork(c chan tokubenchmark.Stats) {
+func (w SysbenchWriter) DoWork(c chan benchmark.Stats) {
 	for x := range w.writers {
 		w.writers[x].WorkItem.DoWork(c)
 	}
@@ -98,20 +98,20 @@ func main() {
 	mongotools.MakeCollections(*collname, *dbname, *numCollections, session, indexes)
 	// at this point we have created the collection, now run the benchmark
 	res := new(mongotools.IIBenchResult)
-	workers := make([]tokubenchmark.WorkInfo, 0, *numWriters)
+	workers := make([]benchmark.WorkInfo, 0, *numWriters)
 
 	var writers []SysbenchWriter = make([]SysbenchWriter, *numWriters)
 	for i := 0; i < *numCollections; i++ {
 		currCollectionString := mongotools.GetCollectionString(*collname, i)
 		var gen *SysbenchDocGenerator = new(SysbenchDocGenerator)
 		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
-		var curr tokubenchmark.WorkInfo = mongotools.MakeCollectionWriter(gen, session, *dbname, currCollectionString, *numInsertsPerCollection)
+		var curr benchmark.WorkInfo = mongotools.MakeCollectionWriter(gen, session, *dbname, currCollectionString, *numInsertsPerCollection)
 		writers[i%*numWriters].writers = append(writers[i%*numWriters].writers, curr)
 	}
 	for i := 0; i < *numWriters; i++ {
-		var curr tokubenchmark.WorkInfo = tokubenchmark.WorkInfo{WorkItem: writers[i]}
+		var curr benchmark.WorkInfo = benchmark.WorkInfo{WorkItem: writers[i]}
 		curr.MaxOps = writers[i].writers[0].MaxOps
 		workers = append(workers, curr)
 	}
-	tokubenchmark.Run(res, workers, 0)
+	benchmark.Run(res, workers, 0)
 }

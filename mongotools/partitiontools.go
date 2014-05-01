@@ -2,7 +2,7 @@ package mongotools
 
 import (
 	"fmt"
-	"github.com/Tokutek/tokubenchmark"
+	"github.com/Tokutek/go-benchmark"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"time"
@@ -34,7 +34,7 @@ type AddPartitionWorkItem struct {
 // longer than Interval defined in AddPartitionWorkItem, then it adds a partition.
 // For example, if a.Interval is set to one hour, and the last partition was created
 // 61 minutes ago, this function will add a partition
-func (a AddPartitionWorkItem) DoWork(c chan tokubenchmark.Stats) {
+func (a AddPartitionWorkItem) DoWork(c chan benchmark.Stats) {
 	db := a.Session.DB(a.Dbname)
 	coll := db.C(a.Collname)
 	var result partitionInfo
@@ -77,7 +77,7 @@ type DropPartitionWorkItem struct {
 // longer than Interval defined in DropPartitionWorkItem, then it drops the first partition.
 // For example, if a.Interval is set to six hours, and the first partition was created
 // seven hours ago, this function will drop the first partition
-func (a DropPartitionWorkItem) DoWork(c chan tokubenchmark.Stats) {
+func (a DropPartitionWorkItem) DoWork(c chan benchmark.Stats) {
 	db := a.Session.DB(a.Dbname)
 	coll := db.C(a.Collname)
 	var result partitionInfo

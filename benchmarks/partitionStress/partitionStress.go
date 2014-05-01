@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"github.com/Tokutek/tokubenchmark"
-	"github.com/Tokutek/tokubenchmark/mongotools"
+	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
 	"math/rand"
@@ -36,7 +36,7 @@ func main() {
 	res := new(mongotools.IIBenchResult)
 	numWriters := 8
 	numQueryThreads := 16
-	workers := make([]tokubenchmark.WorkInfo, 0, numWriters+numQueryThreads)
+	workers := make([]benchmark.WorkInfo, 0, numWriters+numQueryThreads)
 	currCollectionString := mongotools.GetCollectionString(collname, 0)
 	for i := 0; i < numWriters; i++ {
 		var gen *mongotools.IIBenchDocGenerator = new(mongotools.IIBenchDocGenerator)
@@ -58,21 +58,21 @@ func main() {
 			time.Now(),
 			100,
 			0}
-		workInfo := tokubenchmark.WorkInfo{query, 0, 0, 0}
+		workInfo := benchmark.WorkInfo{query, 0, 0, 0}
 		workers = append(workers, workInfo)
 	}
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
 		var addPartitionItem = mongotools.AddPartitionWorkItem{copiedSession, dbname, currCollectionString, time.Hour}
-		workers = append(workers, tokubenchmark.WorkInfo{addPartitionItem, 1, 1, 0})
+		workers = append(workers, benchmark.WorkInfo{addPartitionItem, 1, 1, 0})
 	}
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
 		var dropPartitionItem = mongotools.DropPartitionWorkItem{copiedSession, dbname, currCollectionString, 7 * time.Hour}
-		workers = append(workers, tokubenchmark.WorkInfo{dropPartitionItem, 1, 1, 0})
+		workers = append(workers, benchmark.WorkInfo{dropPartitionItem, 1, 1, 0})
 	}
 	// have this go for a looooooong time
-	tokubenchmark.Run(res, workers, time.Duration(1<<32)*time.Second)
+	benchmark.Run(res, workers, time.Duration(1<<32)*time.Second)
 }
