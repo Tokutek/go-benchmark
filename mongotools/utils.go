@@ -6,6 +6,7 @@ import (
 	"log"
 )
 
+// IsTokuMX determines if the server connected to is TokuMX.
 func IsTokuMX(db *mgo.Database) bool {
 	var result bson.M
 	if err := db.Run("buildInfo", &result); err != nil {
