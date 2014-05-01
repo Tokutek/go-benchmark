@@ -74,17 +74,12 @@ func (s SysbenchTransaction) DoWork(c chan benchmark.Stats) {
 	coll := db.C(mongotools.GetCollectionString(s.Collname, int(collectionIndex)))
 	var result benchmark.Stats
 
-	transactionBegan := false
-	if mongotools.IsTokuMX(s.Session) {
-		var commandResult bson.M
-		err := db.Run(bson.M{"beginTransaction": 1}, &commandResult)
-		if err != nil {
-			result.Errors++
-		} else {
-			transactionBegan = true
-		}
+	txn := mongotools.Transaction{DB: db}
+	if err := txn.Begin(); err != nil {
+		result.Errors++
 	}
-	// TODO: run beginTransaction for TokuMX
+	defer txn.Close()
+
 	var i uint
 	for i = 0; i < s.Info.oltpPointSelects; i++ {
 		// db.sbtest8.find({_id: 554312}, {c: 1, _id: 0})
@@ -172,13 +167,8 @@ func (s SysbenchTransaction) DoWork(c chan benchmark.Stats) {
 	if err != nil {
 		// we got an error
 		result.Errors++
-	}
-	if transactionBegan {
-		var commandResult bson.M
-		err := db.Run(bson.M{"commitTransaction": 1}, &commandResult)
-		if err != nil {
-			result.Errors++
-		}
+	} else {
+		txn.Commit()
 	}
 
 	// send result over channel
