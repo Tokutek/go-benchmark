@@ -19,7 +19,9 @@ import (
 //     defer txn.Close()
 //     // ...
 //     if success {
-//         txn.Commit()
+//         if err := txn.Commit(); err != nil {
+//             log.Fatal(err)
+//         }
 //     }
 type Transaction struct {
 	DB   *mgo.Database
