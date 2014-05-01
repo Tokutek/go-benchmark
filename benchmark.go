@@ -38,7 +38,7 @@ type ResultManager interface {
 	PrintFinalResults()
 	// Method responsible for aggregating results that an individual
 	// WorkItem sends over the channel provided in WorkItem.DoWork
-	RegisterIntermedieteResult(r Stats)
+	RegisterIntermediateResult(r Stats)
 }
 
 // Defines information about what a background thread's work.
@@ -135,7 +135,7 @@ func registerWrites(r ResultManager, c chan Stats, quitChannel chan int, done *s
 		case <-quitChannel: // I hope this check is not too inefficient. If it is, we can batch the default case
 			return
 		case x := <-c:
-			r.RegisterIntermedieteResult(x)
+			r.RegisterIntermediateResult(x)
 		}
 	}
 }

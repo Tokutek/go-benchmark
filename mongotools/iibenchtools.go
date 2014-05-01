@@ -161,7 +161,7 @@ func (r *IIBenchResult) PrintFinalResults() {
 	fmt.Println("Benchmark done. Inserts: ", r.NumInserts, ", Queries: ", r.NumQueries)
 }
 
-func (r *IIBenchResult) RegisterIntermedieteResult(result benchmark.Stats) {
+func (r *IIBenchResult) RegisterIntermediateResult(result benchmark.Stats) {
 	r.NumInserts += result.Inserts
 	r.NumQueries += result.Queries
 }

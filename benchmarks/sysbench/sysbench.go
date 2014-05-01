@@ -210,7 +210,7 @@ func (r *SysbenchResult) PrintFinalResults() {
 	fmt.Println("Benchmark done. Transactions: ", r.NumTransactions, ", Errors: ", r.NumErrors)
 }
 
-func (r *SysbenchResult) RegisterIntermedieteResult(result benchmark.Stats) {
+func (r *SysbenchResult) RegisterIntermediateResult(result benchmark.Stats) {
 	r.NumTransactions += result.Operations
 	r.NumErrors += result.Errors
 }
