@@ -54,7 +54,7 @@ func main() {
 	mongotools.MakeCollections(*collname, *dbname, *numCollections, session, indexes)
 	// at this point we have created the collection, now run the benchmark
 	res := new(mongotools.IIBenchResult)
-	workers := make([]tokubenchmark.BenchmarkWorkInfo, 0, *numWriters+*numQueryThreads)
+	workers := make([]tokubenchmark.WorkInfo, 0, *numWriters+*numQueryThreads)
 	for i := 0; i < *numWriters; i++ {
 		var gen *mongotools.IIBenchDocGenerator = new(mongotools.IIBenchDocGenerator)
 		// we want each worker to have it's own random number generator
@@ -77,8 +77,8 @@ func main() {
 			time.Now(),
 			*queryResultLimit,
 			0}
-		workInfo := tokubenchmark.BenchmarkWorkInfo{query, *queriesPerInterval, *queryInterval, 0}
+		workInfo := tokubenchmark.WorkInfo{query, *queriesPerInterval, *queryInterval, 0}
 		workers = append(workers, workInfo)
 	}
-	tokubenchmark.RunBenchmark(res, workers, time.Duration(*numSeconds)*time.Second)
+	tokubenchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
 }

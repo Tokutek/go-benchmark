@@ -36,7 +36,7 @@ func main() {
 	res := new(mongotools.IIBenchResult)
 	numWriters := 8
 	numQueryThreads := 16
-	workers := make([]tokubenchmark.BenchmarkWorkInfo, 0, numWriters+numQueryThreads)
+	workers := make([]tokubenchmark.WorkInfo, 0, numWriters+numQueryThreads)
 	currCollectionString := mongotools.GetCollectionString(collname, 0)
 	for i := 0; i < numWriters; i++ {
 		var gen *mongotools.IIBenchDocGenerator = new(mongotools.IIBenchDocGenerator)
@@ -58,21 +58,21 @@ func main() {
 			time.Now(),
 			100,
 			0}
-		workInfo := tokubenchmark.BenchmarkWorkInfo{query, 0, 0, 0}
+		workInfo := tokubenchmark.WorkInfo{query, 0, 0, 0}
 		workers = append(workers, workInfo)
 	}
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
 		var addPartitionItem = mongotools.AddPartitionWorkItem{copiedSession, dbname, currCollectionString, time.Hour}
-		workers = append(workers, tokubenchmark.BenchmarkWorkInfo{addPartitionItem, 1, 1, 0})
+		workers = append(workers, tokubenchmark.WorkInfo{addPartitionItem, 1, 1, 0})
 	}
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
 		var dropPartitionItem = mongotools.DropPartitionWorkItem{copiedSession, dbname, currCollectionString, 7 * time.Hour}
-		workers = append(workers, tokubenchmark.BenchmarkWorkInfo{dropPartitionItem, 1, 1, 0})
+		workers = append(workers, tokubenchmark.WorkInfo{dropPartitionItem, 1, 1, 0})
 	}
 	// have this go for a looooooong time
-	tokubenchmark.RunBenchmark(res, workers, time.Duration(1<<32)*time.Second)
+	tokubenchmark.Run(res, workers, time.Duration(1<<32)*time.Second)
 }

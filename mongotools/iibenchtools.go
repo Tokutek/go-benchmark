@@ -78,7 +78,7 @@ func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
 		Price:          price}
 }
 
-// a BenchmarkWorkItem to run iibench queries
+// a WorkItem to run iibench queries
 type IIBenchQuery struct {
 	Session          *mgo.Session
 	Dbname           string
@@ -89,7 +89,7 @@ type IIBenchQuery struct {
 	NumQueriesSoFar  uint64
 }
 
-func (r IIBenchQuery) DoWork(c chan tokubenchmark.BenchmarkStats) {
+func (r IIBenchQuery) DoWork(c chan tokubenchmark.Stats) {
 	db := r.Session.DB(r.Dbname)
 	coll := db.C(r.Collname)
 	customerID := r.RandSource.Int31n(MaxNumCustomers)
@@ -133,14 +133,14 @@ func (r IIBenchQuery) DoWork(c chan tokubenchmark.BenchmarkStats) {
 	for iter.Next(&result) {
 	}
 	r.NumQueriesSoFar++
-	c <- tokubenchmark.BenchmarkStats{Queries: 1}
+	c <- tokubenchmark.Stats{Queries: 1}
 }
 
 func (r IIBenchQuery) Close() {
 	r.Session.Close()
 }
 
-// implements BenchmarkResultManager
+// implements ResultManager
 // used to print results of an iibench run
 type IIBenchResult struct {
 	NumInserts          uint64
@@ -161,7 +161,7 @@ func (r *IIBenchResult) PrintFinalResults() {
 	fmt.Println("Benchmark done. Inserts: ", r.NumInserts, ", Queries: ", r.NumQueries)
 }
 
-func (r *IIBenchResult) RegisterIntermedieteResult(result tokubenchmark.BenchmarkStats) {
+func (r *IIBenchResult) RegisterIntermedieteResult(result tokubenchmark.Stats) {
 	r.NumInserts += result.Inserts
 	r.NumQueries += result.Queries
 }

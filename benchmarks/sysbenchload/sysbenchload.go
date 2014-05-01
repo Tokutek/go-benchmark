@@ -51,9 +51,9 @@ func (generator *SysbenchDocGenerator) MakeDoc() interface{} {
 	return ret
 }
 
-// implements BenchmarkWorkItem
+// implements WorkItem
 type SysbenchWriter struct {
-	writers []tokubenchmark.BenchmarkWorkInfo
+	writers []tokubenchmark.WorkInfo
 }
 
 func (w SysbenchWriter) Close() {
@@ -62,7 +62,7 @@ func (w SysbenchWriter) Close() {
 	}
 }
 
-func (w SysbenchWriter) DoWork(c chan tokubenchmark.BenchmarkStats) {
+func (w SysbenchWriter) DoWork(c chan tokubenchmark.Stats) {
 	for x := range w.writers {
 		w.writers[x].WorkItem.DoWork(c)
 	}
@@ -98,20 +98,20 @@ func main() {
 	mongotools.MakeCollections(*collname, *dbname, *numCollections, session, indexes)
 	// at this point we have created the collection, now run the benchmark
 	res := new(mongotools.IIBenchResult)
-	workers := make([]tokubenchmark.BenchmarkWorkInfo, 0, *numWriters)
+	workers := make([]tokubenchmark.WorkInfo, 0, *numWriters)
 
 	var writers []SysbenchWriter = make([]SysbenchWriter, *numWriters)
 	for i := 0; i < *numCollections; i++ {
 		currCollectionString := mongotools.GetCollectionString(*collname, i)
 		var gen *SysbenchDocGenerator = new(SysbenchDocGenerator)
 		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
-		var curr tokubenchmark.BenchmarkWorkInfo = mongotools.MakeCollectionWriter(gen, session, *dbname, currCollectionString, *numInsertsPerCollection)
+		var curr tokubenchmark.WorkInfo = mongotools.MakeCollectionWriter(gen, session, *dbname, currCollectionString, *numInsertsPerCollection)
 		writers[i%*numWriters].writers = append(writers[i%*numWriters].writers, curr)
 	}
 	for i := 0; i < *numWriters; i++ {
-		var curr tokubenchmark.BenchmarkWorkInfo = tokubenchmark.BenchmarkWorkInfo{WorkItem: writers[i]}
+		var curr tokubenchmark.WorkInfo = tokubenchmark.WorkInfo{WorkItem: writers[i]}
 		curr.MaxOps = writers[i].writers[0].MaxOps
 		workers = append(workers, curr)
 	}
-	tokubenchmark.RunBenchmark(res, workers, 0)
+	tokubenchmark.Run(res, workers, 0)
 }

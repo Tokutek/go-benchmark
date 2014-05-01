@@ -20,7 +20,7 @@ type DocGenerator interface {
 	MakeDoc() interface{}
 }
 
-// implements BenchmarkWorkItem
+// implements WorkItem
 type collectionWriter struct {
 	Session       *mgo.Session
 	Coll          *mgo.Collection
@@ -28,7 +28,7 @@ type collectionWriter struct {
 	Gen           DocGenerator
 }
 
-func (w collectionWriter) DoWork(c chan tokubenchmark.BenchmarkStats) {
+func (w collectionWriter) DoWork(c chan tokubenchmark.Stats) {
 	var numInserted uint64
 	docs := make([]interface{}, w.DocsPerInsert)
 	// if docsPerInsert is less than 50, we want
@@ -45,21 +45,21 @@ func (w collectionWriter) DoWork(c chan tokubenchmark.BenchmarkStats) {
 		}
 		numInserted += w.DocsPerInsert
 	}
-	c <- tokubenchmark.BenchmarkStats{Inserts: numInserted}
+	c <- tokubenchmark.Stats{Inserts: numInserted}
 }
 
 func (w collectionWriter) Close() {
 	w.Session.Close()
 }
 
-// returns a BenchmarkWorkInfo that can be used for loading documents into a collection
+// returns a WorkInfo that can be used for loading documents into a collection
 // This is essentially a helper function for the purpose of loading data into collections,
 // be it an iibench writer or a sysbench trickle loader. The caller defines how to generate
-// the documents, via the DocGenerator passed in, and how many insertions the BenchmarkWorkInfo is to
-// do (with 0 meaning unlimited and that the benchmark is bounded by time), and a BenchmarkWorkInfo is returned
+// the documents, via the DocGenerator passed in, and how many insertions the WorkInfo is to
+// do (with 0 meaning unlimited and that the benchmark is bounded by time), and a WorkInfo is returned
 // This file exports flags "docsPerInsert" that defines the batching of the writer, "insertsPerInterval" and "insertInterval"
 // to define whether there should be any gating.
-func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread uint64) tokubenchmark.BenchmarkWorkInfo {
+func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread uint64) tokubenchmark.WorkInfo {
 	copiedSession := session.Copy()
 	copiedSession.SetSafe(&mgo.Safe{})
 	db := copiedSession.DB(dbname)
@@ -88,6 +88,6 @@ func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string,
 		opsPerInterval = *insertsPerInterval / *docsPerInsert
 	}
 	log.Println("opsPerInterval ", opsPerInterval, " numOps ", numOps)
-	workInfo := tokubenchmark.BenchmarkWorkInfo{writer, opsPerInterval, *insertInterval, numOps}
+	workInfo := tokubenchmark.WorkInfo{writer, opsPerInterval, *insertInterval, numOps}
 	return workInfo
 }

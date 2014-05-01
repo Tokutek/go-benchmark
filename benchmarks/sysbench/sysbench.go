@@ -23,7 +23,7 @@ type SysbenchInfo struct {
 	oltpNonIndexUpdates uint
 }
 
-// implements BenchmarkWorkitem
+// implements Workitem
 type SysbenchTransaction struct {
 	Info           SysbenchInfo
 	Session        *mgo.Session
@@ -68,11 +68,11 @@ func runQuery(filter bson.M, projection bson.M, coll *mgo.Collection) {
 	}
 }
 
-func (s SysbenchTransaction) DoWork(c chan tokubenchmark.BenchmarkStats) {
+func (s SysbenchTransaction) DoWork(c chan tokubenchmark.Stats) {
 	db := s.Session.DB(s.Dbname)
 	collectionIndex := s.RandSource.Int31n(int32(s.NumCollections))
 	coll := db.C(mongotools.GetCollectionString(s.Collname, int(collectionIndex)))
-	var result tokubenchmark.BenchmarkStats
+	var result tokubenchmark.Stats
 
 	transactionBegan := false
 	if mongotools.IsTokuMX {
@@ -190,7 +190,7 @@ func (s SysbenchTransaction) Close() {
 	s.Session.Close()
 }
 
-// implements BenchmarkResultManager
+// implements ResultManager
 type SysbenchResult struct {
 	NumTransactions     uint64
 	NumErrors           uint64
@@ -210,7 +210,7 @@ func (r *SysbenchResult) PrintFinalResults() {
 	fmt.Println("Benchmark done. Transactions: ", r.NumTransactions, ", Errors: ", r.NumErrors)
 }
 
-func (r *SysbenchResult) RegisterIntermedieteResult(result tokubenchmark.BenchmarkStats) {
+func (r *SysbenchResult) RegisterIntermedieteResult(result tokubenchmark.Stats) {
 	r.NumTransactions += result.Operations
 	r.NumErrors += result.Errors
 }
@@ -229,7 +229,7 @@ func main() {
 	numSeconds := flag.Uint64("numSeconds", 5, "number of seconds the benchmark is to run.")
 	numMaxTPS := flag.Uint64("numMaxTPS", 0, "number of maximum transactions to process. If 0, then unlimited")
 
-	// for the BenchmarkWorkItem
+	// for the WorkItem
 	oltpRangeSize := flag.Uint("oltpRangeSize", 100, "size of range queries in each transaction")
 	oltpPointSelects := flag.Uint("oltpPointSelects", 10, "number of point queries by _id per transaction")
 	oltpSimpleRanges := flag.Uint("oltpSimpleRanges", 1, "number of simple range queries per transaction")
@@ -263,14 +263,14 @@ func main() {
 		*oltpDistinctRanges,
 		*oltpIndexUpdates,
 		*oltpNonIndexUpdates}
-	workers := make([]tokubenchmark.BenchmarkWorkInfo, 0, *numThreads)
+	workers := make([]tokubenchmark.WorkInfo, 0, *numThreads)
 	var i uint
 	for i = 0; i < *numThreads; i++ {
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
 		// allows transactions to be run on this session
 		copiedSession.SetMode(mgo.Strong, true)
-		var currItem tokubenchmark.BenchmarkWorkItem = SysbenchTransaction{
+		var currItem tokubenchmark.WorkItem = SysbenchTransaction{
 			info,
 			copiedSession,
 			*dbname,
@@ -279,10 +279,10 @@ func main() {
 			*numCollections,
 			*readOnly,
 			*numMaxInserts}
-		var currInfo tokubenchmark.BenchmarkWorkInfo = tokubenchmark.BenchmarkWorkInfo{currItem, numTPSPerThread, 1, 0}
+		var currInfo tokubenchmark.WorkInfo = tokubenchmark.WorkInfo{currItem, numTPSPerThread, 1, 0}
 		workers = append(workers, currInfo)
 	}
 	res := new(SysbenchResult)
 	fmt.Println("passing in ", *numSeconds)
-	tokubenchmark.RunBenchmark(res, workers, time.Duration(*numSeconds)*time.Second)
+	tokubenchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
 }
