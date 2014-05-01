@@ -1,4 +1,4 @@
-tokubenchmark
-=============
+go-benchmark
+============
 
-[![GoDoc](https://godoc.org/github.com/Tokutek/tokubenchmark?status.png)](https://godoc.org/github.com/Tokutek/tokubenchmark)
+[![GoDoc](https://godoc.org/github.com/Tokutek/go-benchmark?status.png)](https://godoc.org/github.com/Tokutek/go-benchmark)
