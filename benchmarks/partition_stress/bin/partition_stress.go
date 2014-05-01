@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/benchmarks/iibench"
+	"github.com/Tokutek/go-benchmark/benchmarks/partition_stress"
 	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
@@ -33,13 +35,13 @@ func main() {
 
 	mongotools.MakeCollections(collname, dbname, 1, session, indexes)
 	// at this point we have created the collection, now run the benchmark
-	res := new(mongotools.IIBenchResult)
+	res := new(iibench.IIBenchResult)
 	numWriters := 8
 	numQueryThreads := 16
 	workers := make([]benchmark.WorkInfo, 0, numWriters+numQueryThreads)
 	currCollectionString := mongotools.GetCollectionString(collname, 0)
 	for i := 0; i < numWriters; i++ {
-		var gen *mongotools.IIBenchDocGenerator = new(mongotools.IIBenchDocGenerator)
+		var gen *iibench.IIBenchDocGenerator = new(iibench.IIBenchDocGenerator)
 		// we want each worker to have it's own random number generator
 		// because generating random numbers takes a mutex
 		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -50,7 +52,7 @@ func main() {
 	for i := 0; i < numQueryThreads; i++ {
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
-		query := mongotools.IIBenchQuery{
+		query := iibench.IIBenchQuery{
 			copiedSession,
 			dbname,
 			currCollectionString,
@@ -64,13 +66,13 @@ func main() {
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
-		var addPartitionItem = mongotools.AddPartitionWorkItem{copiedSession, dbname, currCollectionString, time.Hour}
+		var addPartitionItem = partition_stress.AddPartitionWorkItem{copiedSession, dbname, currCollectionString, time.Hour}
 		workers = append(workers, benchmark.WorkInfo{addPartitionItem, 1, 1, 0})
 	}
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
-		var dropPartitionItem = mongotools.DropPartitionWorkItem{copiedSession, dbname, currCollectionString, 7 * time.Hour}
+		var dropPartitionItem = partition_stress.DropPartitionWorkItem{copiedSession, dbname, currCollectionString, 7 * time.Hour}
 		workers = append(workers, benchmark.WorkInfo{dropPartitionItem, 1, 1, 0})
 	}
 	// have this go for a looooooong time

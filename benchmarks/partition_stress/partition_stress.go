@@ -1,4 +1,4 @@
-package mongotools
+package partition_stress
 
 import (
 	"fmt"

@@ -1,84 +1,167 @@
-package main
+package iibench
 
 import (
-	"flag"
+	"fmt"
 	"github.com/Tokutek/go-benchmark"
-	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
-	"log"
+	"labix.org/v2/mgo/bson"
 	"math/rand"
 	"time"
 )
 
-func main() {
-	// needed for making/accessing collections:
-	host := flag.String("host", "localhost", "host:port string of database to connect to")
-	dbname := flag.String("db", "iibench", "dbname")
-	collname := flag.String("coll", "purchases_index", "collname")
-	numCollections := flag.Int("numCollections", 1, "number of collections to simultaneously run on")
+//1000, 10000, 100000, 500
+const (
+	MaxNumCashRegisters = 1000
+	MaxNumProducts      = 10000
+	MaxNumCustomers     = 100000
+	MaxPrice            = 500.0
+)
 
-	// doc generator specific variables:
-	numCharFields := flag.Int("numCharFields", 0, "specify the number of additional char fields stored in an array")
-	charFieldLength := flag.Int("charFieldLength", 5, "specify length of char fields")
+////////////////////////////////////////////////////////////////
+//
+// Code to generate an IIBench document
+//
+//
 
-	// for IIBenchQuery
-	queryResultLimit := flag.Int("queryResultLimit", 10, "number of results queries should be limited to")
-	queriesPerInterval := flag.Uint64("queriesPerInterval", 100, "max queries per interval, 0 means unlimited")
-	queryInterval := flag.Uint64("queryInterval", 1, "interval for queries, in seconds, meant to be used with -queriesPerInterval")
+// what a document looks like
+type iiBenchDoc struct {
+	DateAndTime    time.Time "ts"
+	CashRegisterID int32     "crid"
+	CustomerID     int32     "cid"
+	ProductID      int32     "pid"
+	Price          float64   "pr"
+	CharFields     []string  "cf,omitempty"
+}
 
-	// for benchmark
-	numWriters := flag.Int("numWriterThreads", 1, "specify the number of writer threads")
-	numQueryThreads := flag.Int("numQueryThreads", 0, "specify the number of threads to perform queries")
-	numSeconds := flag.Int64("numSeconds", 5, "number of seconds the benchmark is to run. If this value is > 0, then numInsertsPerThread MUST be 0, and vice versa")
-	numInsertsPerThread := flag.Uint64("numInsertsPerThread", 0, "number of inserts to be done per thread. If this value is > 0, then numSeconds MUST be 0 and numQueryThreads MUST be 0")
+// information we use to generate an IIBench document
+type IIBenchDocGenerator struct {
+	RandSource      *rand.Rand
+	NumCharFields   int
+	CharFieldLength int
+}
 
-	flag.Parse()
+// this function inspired by http://devpy.wordpress.com/2013/10/24/create-random-string-in-golang/
+func rand_str(str_size int, randSource *rand.Rand) string {
+	alphanum := "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	var bytes = make([]byte, str_size)
+	for i := 0; i < str_size; i++ {
+		bytes[i] = alphanum[randSource.Int31n(int32(len(alphanum)))]
+	}
+	return string(bytes)
+}
 
-	if *numInsertsPerThread > 0 && (*numQueryThreads > 0 || *numSeconds > 0) {
-		log.Fatal("Invalid values for numInsertsPerThread: ", *numInsertsPerThread, ", numQueryThreads: ", *numQueryThreads, ", numSeconds: ", *numSeconds)
+// function to generate an iiBench document
+func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
+	dateAndTime := time.Now()
+	cashRegisterID := generator.RandSource.Int31n(MaxNumCashRegisters)
+	customerID := generator.RandSource.Int31n(MaxNumCustomers)
+	productID := generator.RandSource.Int31n(MaxNumProducts)
+	price := (generator.RandSource.Float64()*MaxPrice + float64(customerID)) / 100.0
+	if generator.NumCharFields > 0 {
+		var charFields []string = make([]string, generator.NumCharFields)
+		for i := 0; i < len(charFields); i++ {
+			charFields[i] = rand_str(generator.CharFieldLength, generator.RandSource)
+		}
+		return iiBenchDoc{
+			DateAndTime:    dateAndTime,
+			CashRegisterID: cashRegisterID,
+			CustomerID:     customerID,
+			ProductID:      productID,
+			Price:          price,
+			CharFields:     charFields}
+	}
+	return iiBenchDoc{
+		DateAndTime:    dateAndTime,
+		CashRegisterID: cashRegisterID,
+		CustomerID:     customerID,
+		ProductID:      productID,
+		Price:          price}
+}
+
+// a WorkItem to run iibench queries
+type IIBenchQuery struct {
+	Session          *mgo.Session
+	Dbname           string
+	Collname         string
+	RandSource       *rand.Rand
+	StartTime        time.Time
+	QueryResultLimit int
+	NumQueriesSoFar  uint64
+}
+
+func (r IIBenchQuery) DoWork(c chan benchmark.Stats) {
+	db := r.Session.DB(r.Dbname)
+	coll := db.C(r.Collname)
+	customerID := r.RandSource.Int31n(MaxNumCustomers)
+	cashRegisterID := r.RandSource.Int31n(MaxNumCashRegisters)
+	price := r.RandSource.Float64()*MaxPrice + float64(customerID)/100.0
+	// generate a random time since r.StartTime
+	// there is likely a better way to do this
+	since := time.Since(r.StartTime)
+	sinceInNano := since.Nanoseconds()
+	var randomTime int64
+	if sinceInNano > 0 {
+		randomTime = r.RandSource.Int63n(sinceInNano)
+	}
+	timeToQuery := r.StartTime.Add(time.Duration(randomTime))
+
+	var query *mgo.Query
+	if r.NumQueriesSoFar%3 == 0 {
+		filter := bson.M{"$or": []bson.M{
+			bson.M{"pr": price, "ts": timeToQuery, "cid": bson.M{"$gte": customerID}},
+			bson.M{"pr": price, "ts": bson.M{"$gt": timeToQuery}},
+			bson.M{"pr": bson.M{"$gt": price}}}}
+		projection := bson.M{"pr": 1, "ts": 1, "cid": 1}
+		query = coll.Find(filter).Select(projection).Hint("pr", "ts", "cid")
+	} else if r.NumQueriesSoFar%3 == 1 {
+		filter := bson.M{"$or": []bson.M{
+			bson.M{"crid": cashRegisterID, "pr": price, "cid": bson.M{"$gte": customerID}},
+			bson.M{"crid": cashRegisterID, "pr": bson.M{"$gt": price}},
+			bson.M{"crid": bson.M{"$gt": cashRegisterID}}}}
+		projection := bson.M{"crid": 1, "pr": 1, "cid": 1}
+		query = coll.Find(filter).Select(projection).Hint("crid", "pr", "cid")
+	} else {
+		filter := bson.M{"$or": []bson.M{
+			bson.M{"pr": price, "cid": bson.M{"$gte": customerID}},
+			bson.M{"pr": bson.M{"$gt": price}}}}
+		projection := bson.M{"pr": 1, "cid": 1}
+		query = coll.Find(filter).Select(projection).Hint("pr", "cid")
 	}
 
-	session, err := mgo.Dial(*host)
-	if err != nil {
-		log.Fatal("Error connecting to ", *host, ": ", err)
+	var result bson.M
+	iter := query.Limit(r.QueryResultLimit).Iter()
+	for iter.Next(&result) {
 	}
-	// so we are not in fire and forget
-	session.SetSafe(&mgo.Safe{})
-	defer session.Close()
+	r.NumQueriesSoFar++
+	c <- benchmark.Stats{Queries: 1}
+}
 
-	indexes := make([]mgo.Index, 3)
-	indexes[0] = mgo.Index{Key: []string{"pr", "cid"}}
-	indexes[1] = mgo.Index{Key: []string{"crid", "pr", "cid"}}
-	indexes[2] = mgo.Index{Key: []string{"pr", "ts", "cid"}}
+func (r IIBenchQuery) Close() {
+	r.Session.Close()
+}
 
-	mongotools.MakeCollections(*collname, *dbname, *numCollections, session, indexes)
-	// at this point we have created the collection, now run the benchmark
-	res := new(mongotools.IIBenchResult)
-	workers := make([]benchmark.WorkInfo, 0, *numWriters+*numQueryThreads)
-	for i := 0; i < *numWriters; i++ {
-		var gen *mongotools.IIBenchDocGenerator = new(mongotools.IIBenchDocGenerator)
-		// we want each worker to have it's own random number generator
-		// because generating random numbers takes a mutex
-		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
-		gen.CharFieldLength = *charFieldLength
-		gen.NumCharFields = *numCharFields
-		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
-		workers = append(workers, mongotools.MakeCollectionWriter(gen, session, *dbname, currCollectionString, *numInsertsPerThread))
-	}
-	for i := 0; i < *numQueryThreads; i++ {
-		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
-		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
-		query := mongotools.IIBenchQuery{
-			copiedSession,
-			*dbname,
-			currCollectionString,
-			rand.New(rand.NewSource(time.Now().UnixNano())),
-			time.Now(),
-			*queryResultLimit,
-			0}
-		workInfo := benchmark.WorkInfo{query, *queriesPerInterval, *queryInterval, 0}
-		workers = append(workers, workInfo)
-	}
-	benchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
+// implements ResultManager
+// used to print results of an iibench run
+type IIBenchResult struct {
+	NumInserts          uint64
+	NumQueries          uint64
+	LastInsertsReported uint64
+	LastQueriesReported uint64
+}
+
+func (r *IIBenchResult) PrintResults() {
+	lastInserts := r.NumInserts - r.LastInsertsReported
+	lastQueries := r.NumQueries - r.LastQueriesReported
+	fmt.Println("last insert", lastInserts, "total insert", r.NumInserts, "last queries", lastQueries, "total query", r.NumQueries)
+	r.LastInsertsReported = r.NumInserts
+	r.LastQueriesReported = r.NumQueries
+}
+
+func (r *IIBenchResult) PrintFinalResults() {
+	fmt.Println("Benchmark done. Inserts: ", r.NumInserts, ", Queries: ", r.NumQueries)
+}
+
+func (r *IIBenchResult) RegisterIntermediateResult(result benchmark.Stats) {
+	r.NumInserts += result.Inserts
+	r.NumQueries += result.Queries
 }

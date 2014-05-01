@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/benchmarks/iibench"
 	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
@@ -97,7 +98,7 @@ func main() {
 
 	mongotools.MakeCollections(*collname, *dbname, *numCollections, session, indexes)
 	// at this point we have created the collection, now run the benchmark
-	res := new(mongotools.IIBenchResult)
+	res := new(iibench.IIBenchResult)
 	workers := make([]benchmark.WorkInfo, 0, *numWriters)
 
 	var writers []SysbenchWriter = make([]SysbenchWriter, *numWriters)
