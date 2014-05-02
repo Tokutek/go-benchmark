@@ -8,12 +8,12 @@ import (
 )
 
 var (
-	docsPerInsert      = flag.Uint64("docsPerInsert", 10, "specify the number of documents per insert")
-	insertsPerInterval = flag.Uint64("insertsPerInterval", 0, "max inserts per interval, 0 means unlimited")
-	insertInterval     = flag.Uint64("insertInterval", 1, "interval for inserts, in seconds, meant to be used with -insertsPerInterval")
+	docsPerInsert      = flag.Int("docsPerInsert", 10, "specify the number of documents per insert")
+	insertsPerInterval = flag.Int("insertsPerInterval", 0, "max inserts per interval, 0 means unlimited")
+	insertInterval     = flag.Int("insertInterval", 1, "interval for inserts, in seconds, meant to be used with -insertsPerInterval")
 )
 
-var minBatchSizeForChannel uint64 = 50
+var minBatchSizeForChannel = 50
 
 type DocGenerator interface {
 	Generate() interface{}
@@ -21,29 +21,29 @@ type DocGenerator interface {
 
 // implements Work
 type insertWork struct {
-	Coll          *mgo.Collection
-	DocsPerInsert uint64
-	Gen           DocGenerator
+	coll          *mgo.Collection
+	docsPerInsert int
+	gen           DocGenerator
 }
 
 func (w *insertWork) Do(c chan benchmark.Stats) {
-	var numInserted uint64
-	docs := make([]interface{}, w.DocsPerInsert)
+	numInserted := 0
+	docs := make([]interface{}, w.docsPerInsert)
 	// if docsPerInsert is less than 50, we want
 	// to batch the operations before sending it over a channel
 	// This is an attempt to get 10% back from iibench
 	// when docsPerInsert=1
 	for numInserted < minBatchSizeForChannel {
 		for i := 0; i < len(docs); i++ {
-			docs[i] = w.Gen.Generate()
+			docs[i] = w.gen.Generate()
 		}
-		err := w.Coll.Insert(docs...)
+		err := w.coll.Insert(docs...)
 		if err != nil {
 			log.Print("received error ", err)
 		}
-		numInserted += w.DocsPerInsert
+		numInserted += len(docs)
 	}
-	c <- benchmark.Stats{Inserts: numInserted}
+	c <- benchmark.Stats{Inserts: uint64(numInserted)}
 }
 
 // returns a WorkInfo that can be used for loading documents into a collection
@@ -53,15 +53,17 @@ func (w *insertWork) Do(c chan benchmark.Stats) {
 // do (with 0 meaning unlimited and that the benchmark is bounded by time), and a WorkInfo is returned
 // This file exports flags "docsPerInsert" that defines the batching of the writer, "insertsPerInterval" and "insertInterval"
 // to define whether there should be any gating.
-func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread uint64) benchmark.WorkInfo {
+func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread int) benchmark.WorkInfo {
 	db := session.DB(dbname)
 	coll := db.C(collname)
 	writer := &insertWork{
 		coll,
 		*docsPerInsert,
 		gen}
-	var numOps uint64
-	var opsPerInterval uint64
+	var (
+		numOps         int
+		opsPerInterval int
+	)
 	if *insertsPerInterval > 0 && *insertsPerInterval < minBatchSizeForChannel {
 		minBatchSizeForChannel = *insertsPerInterval
 	}
@@ -79,6 +81,6 @@ func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string,
 		opsPerInterval = *insertsPerInterval / *docsPerInsert
 	}
 	log.Println("opsPerInterval ", opsPerInterval, " numOps ", numOps)
-	workInfo := benchmark.WorkInfo{writer, opsPerInterval, *insertInterval, numOps}
+	workInfo := benchmark.WorkInfo{writer, uint64(opsPerInterval), uint64(*insertInterval), uint64(numOps)}
 	return workInfo
 }
