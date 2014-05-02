@@ -17,7 +17,7 @@ var minBatchSizeForChannel uint64 = 50
 // interface passed into MakeCollectionWriter that is used to generate
 // documents for insertion
 type DocGenerator interface {
-	MakeDoc() interface{}
+	Generate() interface{}
 }
 
 // implements Work
@@ -37,7 +37,7 @@ func (w collectionWriter) Do(c chan benchmark.Stats) {
 	// when docsPerInsert=1
 	for numInserted < minBatchSizeForChannel {
 		for i := 0; i < len(docs); i++ {
-			docs[i] = w.Gen.MakeDoc()
+			docs[i] = w.Gen.Generate()
 		}
 		err := w.Coll.Insert(docs...)
 		if err != nil {

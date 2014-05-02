@@ -18,19 +18,17 @@ const (
 )
 
 var (
+	// for QueryWork
 	queryResultLimit   = flag.Int("queryResultLimit", 10, "number of results queries should be limited to")
 	queriesPerInterval = flag.Uint64("queriesPerInterval", 100, "max queries per interval, 0 means unlimited")
 	queryInterval      = flag.Uint64("queryInterval", 1, "interval for queries, in seconds, meant to be used with -queriesPerInterval")
+	// for DocGenerator
+	numCharFields   = flag.Int("numCharFields", 0, "specify the number of additional char fields stored in an array")
+	charFieldLength = flag.Int("charFieldLength", 5, "specify length of char fields")
 )
 
-////////////////////////////////////////////////////////////////
-//
-// Code to generate an IIBench document
-//
-//
-
 // what a document looks like
-type iiBenchDoc struct {
+type doc struct {
 	DateAndTime    time.Time "ts"
 	CashRegisterID int32     "crid"
 	CustomerID     int32     "cid"
@@ -40,8 +38,8 @@ type iiBenchDoc struct {
 }
 
 // information we use to generate an IIBench document
-type IIBenchDocGenerator struct {
-	RandSource      *rand.Rand
+type DocGenerator struct {
+	randSource      *rand.Rand
 	NumCharFields   int
 	CharFieldLength int
 }
@@ -56,19 +54,23 @@ func rand_str(str_size int, randSource *rand.Rand) string {
 	return string(bytes)
 }
 
+func NewDocGenerator() *DocGenerator {
+	return &DocGenerator{randSource: rand.New(rand.NewSource(time.Now().UnixNano())), NumCharFields: *numCharFields, CharFieldLength: *charFieldLength}
+}
+
 // function to generate an iiBench document
-func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
+func (g *DocGenerator) Generate() interface{} {
 	dateAndTime := time.Now()
-	cashRegisterID := generator.RandSource.Int31n(MaxNumCashRegisters)
-	customerID := generator.RandSource.Int31n(MaxNumCustomers)
-	productID := generator.RandSource.Int31n(MaxNumProducts)
-	price := (generator.RandSource.Float64()*MaxPrice + float64(customerID)) / 100.0
-	if generator.NumCharFields > 0 {
-		var charFields []string = make([]string, generator.NumCharFields)
+	cashRegisterID := g.randSource.Int31n(MaxNumCashRegisters)
+	customerID := g.randSource.Int31n(MaxNumCustomers)
+	productID := g.randSource.Int31n(MaxNumProducts)
+	price := (g.randSource.Float64()*MaxPrice + float64(customerID)) / 100.0
+	if g.NumCharFields > 0 {
+		var charFields []string = make([]string, g.NumCharFields)
 		for i := 0; i < len(charFields); i++ {
-			charFields[i] = rand_str(generator.CharFieldLength, generator.RandSource)
+			charFields[i] = rand_str(g.CharFieldLength, g.randSource)
 		}
-		return iiBenchDoc{
+		return doc{
 			DateAndTime:    dateAndTime,
 			CashRegisterID: cashRegisterID,
 			CustomerID:     customerID,
@@ -76,7 +78,7 @@ func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
 			Price:          price,
 			CharFields:     charFields}
 	}
-	return iiBenchDoc{
+	return doc{
 		DateAndTime:    dateAndTime,
 		CashRegisterID: cashRegisterID,
 		CustomerID:     customerID,

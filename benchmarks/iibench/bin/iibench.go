@@ -7,7 +7,6 @@ import (
 	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
-	"math/rand"
 	"time"
 )
 
@@ -16,10 +15,6 @@ var (
 	dbname         = flag.String("db", "iibench", "dbname")
 	collname       = flag.String("coll", "purchases_index", "collname")
 	numCollections = flag.Int("numCollections", 1, "number of collections to simultaneously run on")
-
-	// doc generator specific variables:
-	numCharFields   = flag.Int("numCharFields", 0, "specify the number of additional char fields stored in an array")
-	charFieldLength = flag.Int("charFieldLength", 5, "specify length of char fields")
 
 	// for benchmark
 	numWriters          = flag.Int("numWriterThreads", 1, "specify the number of writer threads")
@@ -53,12 +48,7 @@ func main() {
 	res := new(iibench.IIBenchResult)
 	workers := make([]benchmark.WorkInfo, 0, *numWriters+*numQueryThreads)
 	for i := 0; i < *numWriters; i++ {
-		var gen *iibench.IIBenchDocGenerator = new(iibench.IIBenchDocGenerator)
-		// we want each worker to have it's own random number generator
-		// because generating random numbers takes a mutex
-		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
-		gen.CharFieldLength = *charFieldLength
-		gen.NumCharFields = *numCharFields
+		var gen = iibench.NewDocGenerator()
 		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
 		workers = append(workers, mongotools.MakeCollectionWriter(gen, session, *dbname, currCollectionString, *numInsertsPerThread))
 	}

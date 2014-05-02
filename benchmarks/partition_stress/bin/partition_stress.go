@@ -8,7 +8,6 @@ import (
 	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
-	"math/rand"
 	"time"
 )
 
@@ -41,10 +40,7 @@ func main() {
 	workers := make([]benchmark.WorkInfo, 0, numWriters+numQueryThreads)
 	currCollectionString := mongotools.GetCollectionString(collname, 0)
 	for i := 0; i < numWriters; i++ {
-		var gen *iibench.IIBenchDocGenerator = new(iibench.IIBenchDocGenerator)
-		// we want each worker to have it's own random number generator
-		// because generating random numbers takes a mutex
-		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
+		var gen = iibench.NewDocGenerator()
 		gen.CharFieldLength = 100
 		gen.NumCharFields = 0
 		workers = append(workers, mongotools.MakeCollectionWriter(gen, session, dbname, currCollectionString, 0))

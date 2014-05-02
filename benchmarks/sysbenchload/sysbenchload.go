@@ -42,7 +42,7 @@ type SysbenchDocGenerator struct {
 	currID     uint64
 }
 
-func (generator *SysbenchDocGenerator) MakeDoc() interface{} {
+func (generator *SysbenchDocGenerator) Generate() interface{} {
 	ret := SysbenchDoc{
 		generator.currID,
 		generator.RandSource.Int(),
