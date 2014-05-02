@@ -40,10 +40,12 @@ func main() {
 	workers := make([]benchmark.WorkInfo, 0, numWriters+numQueryThreads)
 	currCollectionString := mongotools.GetCollectionString(collname, 0)
 	for i := 0; i < numWriters; i++ {
+		copiedSession := session.Copy()
+		copiedSession.SetSafe(&mgo.Safe{})
 		var gen = iibench.NewDocGenerator()
 		gen.CharFieldLength = 100
 		gen.NumCharFields = 0
-		workers = append(workers, mongotools.MakeCollectionWriter(gen, session, dbname, currCollectionString, 0))
+		workers = append(workers, mongotools.MakeCollectionWriter(gen, copiedSession, dbname, currCollectionString, 0))
 	}
 	for i := 0; i < numQueryThreads; i++ {
 		copiedSession := session.Copy()

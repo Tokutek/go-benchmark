@@ -103,10 +103,12 @@ func main() {
 
 	var writers []SysbenchWriter = make([]SysbenchWriter, *numWriters)
 	for i := 0; i < *numCollections; i++ {
+		copiedSession := session.Copy()
+		copiedSession.SetSafe(&mgo.Safe{})
 		currCollectionString := mongotools.GetCollectionString(*collname, i)
 		var gen *SysbenchDocGenerator = new(SysbenchDocGenerator)
 		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
-		var curr benchmark.WorkInfo = mongotools.MakeCollectionWriter(gen, session, *dbname, currCollectionString, *numInsertsPerCollection)
+		var curr benchmark.WorkInfo = mongotools.MakeCollectionWriter(gen, copiedSession, *dbname, currCollectionString, *numInsertsPerCollection)
 		writers[i%*numWriters].writers = append(writers[i%*numWriters].writers, curr)
 	}
 	for i := 0; i < *numWriters; i++ {

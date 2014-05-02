@@ -2,33 +2,32 @@ package mongotools
 
 import (
 	"flag"
-	//"fmt"
 	"github.com/Tokutek/go-benchmark"
 	"labix.org/v2/mgo"
 	"log"
 )
 
-var docsPerInsert *uint64 = flag.Uint64("docsPerInsert", 10, "specify the number of documents per insert")
-var insertsPerInterval *uint64 = flag.Uint64("insertsPerInterval", 0, "max inserts per interval, 0 means unlimited")
-var insertInterval *uint64 = flag.Uint64("insertInterval", 1, "interval for inserts, in seconds, meant to be used with -insertsPerInterval")
+var (
+	docsPerInsert      = flag.Uint64("docsPerInsert", 10, "specify the number of documents per insert")
+	insertsPerInterval = flag.Uint64("insertsPerInterval", 0, "max inserts per interval, 0 means unlimited")
+	insertInterval     = flag.Uint64("insertInterval", 1, "interval for inserts, in seconds, meant to be used with -insertsPerInterval")
+)
 
 var minBatchSizeForChannel uint64 = 50
 
-// interface passed into MakeCollectionWriter that is used to generate
-// documents for insertion
 type DocGenerator interface {
 	Generate() interface{}
 }
 
 // implements Work
-type collectionWriter struct {
+type insertWork struct {
 	Session       *mgo.Session
 	Coll          *mgo.Collection
 	DocsPerInsert uint64
 	Gen           DocGenerator
 }
 
-func (w collectionWriter) Do(c chan benchmark.Stats) {
+func (w *insertWork) Do(c chan benchmark.Stats) {
 	var numInserted uint64
 	docs := make([]interface{}, w.DocsPerInsert)
 	// if docsPerInsert is less than 50, we want
@@ -48,7 +47,7 @@ func (w collectionWriter) Do(c chan benchmark.Stats) {
 	c <- benchmark.Stats{Inserts: numInserted}
 }
 
-func (w collectionWriter) Close() {
+func (w *insertWork) Close() {
 	w.Session.Close()
 }
 
@@ -60,12 +59,10 @@ func (w collectionWriter) Close() {
 // This file exports flags "docsPerInsert" that defines the batching of the writer, "insertsPerInterval" and "insertInterval"
 // to define whether there should be any gating.
 func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread uint64) benchmark.WorkInfo {
-	copiedSession := session.Copy()
-	copiedSession.SetSafe(&mgo.Safe{})
-	db := copiedSession.DB(dbname)
+	db := session.DB(dbname)
 	coll := db.C(collname)
-	writer := collectionWriter{
-		copiedSession,
+	writer := &insertWork{
+		session,
 		coll,
 		*docsPerInsert,
 		gen}
