@@ -38,7 +38,7 @@ func (w SysbenchWriter) Close() {
 	}
 }
 
-func (w SysbenchWriter) Do(c chan benchmark.Stats) {
+func (w SysbenchWriter) Do(c chan<- interface{}) {
 	for x := range w.writers {
 		w.writers[x].Work.Do(c)
 	}

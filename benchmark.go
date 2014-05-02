@@ -1,43 +1,29 @@
 package benchmark
 
 import (
+	"github.com/leifwalsh/olbermann"
 	"log"
 	"sync"
 	"time"
 )
 
-// Current struct used to transfer results from a Work
-// to a ResultManager. Note that he channel a Work
-// has as an input parameter to Do() is of this type.
+// Basic stats for all benchmarks, some day should make each benchmark define its own.
 type Stats struct {
-	Inserts    uint64
-	Deletes    uint64
-	Updates    uint64
-	Queries    uint64
-	Operations uint64
-	Errors     uint64
+	Inserts    uint64 `type:"counter" report:"iter,cum,total"`
+	Deletes    uint64 `type:"counter" report:"iter,cum,total"`
+	Updates    uint64 `type:"counter" report:"iter,cum,total"`
+	Queries    uint64 `type:"counter" report:"iter,cum,total"`
+	Operations uint64 `type:"counter" report:"iter,cum,total"`
+	Errors     uint64 `type:"counter" report:"total"`
 }
 
 // An interface that defines work to be run on a thread.
 type Work interface {
 	// While the benchmark is running, Do is called repeatedly.
 	// The function is responsible for sending results over the channel.
-	Do(c chan Stats)
+	Do(c chan<- interface{})
 	// Cleanup any state needed before closing the benchmark.
 	Close()
-}
-
-// an interface responsible for reporting results of the benchmark as it is running
-type ResultManager interface {
-	// Method called once a second that is responsible for printing any
-	// any results the benchmark writer sees fit
-	PrintResults()
-	// Called at the end of the benchmark to give the benchmark writer
-	// an opportunity to print a summary of the entire run.
-	PrintFinalResults()
-	// Method responsible for aggregating results that an individual
-	// Work sends over the channel provided in Work.Do
-	RegisterIntermediateResult(r Stats)
 }
 
 // Defines information about what a background thread's work.
@@ -88,7 +74,7 @@ func (o *operationGater) gateOperations(w WorkInfo) {
 
 // run a WorkInfo repeatedly until we get a message over the
 // quitChannel telling us to exit
-func runTimeBasedWorker(w WorkInfo, c chan Stats, quitChannel chan int, done *sync.WaitGroup) {
+func runTimeBasedWorker(w WorkInfo, metrics chan<- interface{}, quitChannel chan int, done *sync.WaitGroup) {
 	// this should never happen, as we've already called verifyWorks,
 	// but it doesn't hurt
 	if w.MaxOps > 0 {
@@ -102,7 +88,7 @@ func runTimeBasedWorker(w WorkInfo, c chan Stats, quitChannel chan int, done *sy
 		case <-quitChannel: // I hope this check is not too inefficient. If it is, we can batch the default case
 			return
 		default:
-			w.Work.Do(c)
+			w.Work.Do(metrics)
 		}
 		o.gateOperations(w)
 	}
@@ -111,7 +97,7 @@ func runTimeBasedWorker(w WorkInfo, c chan Stats, quitChannel chan int, done *sy
 // run a WorkInfo for a finite number of operations. There is no way
 // to get this function to exit early. It exits once the w.Work has
 // been executed w.MaxOps times
-func runFiniteWorker(w WorkInfo, c chan Stats, done *sync.WaitGroup) {
+func runFiniteWorker(w WorkInfo, metrics chan<- interface{}, done *sync.WaitGroup) {
 	// this should never happen, as we've already called verifyWorks,
 	// but it doesn't hurt
 	if w.MaxOps <= 0 {
@@ -121,37 +107,8 @@ func runFiniteWorker(w WorkInfo, c chan Stats, done *sync.WaitGroup) {
 	defer w.Work.Close()
 	o := operationGater{t0: time.Now()}
 	for numOps := uint64(0); numOps < w.MaxOps; numOps++ {
-		w.Work.Do(c)
+		w.Work.Do(metrics)
 		o.gateOperations(w)
-	}
-}
-
-// background thread responsible for accumulating results that Works send
-func registerWrites(r ResultManager, c chan Stats, quitChannel chan int, done *sync.WaitGroup) {
-	defer done.Done()
-	for {
-		select {
-		case <-quitChannel: // I hope this check is not too inefficient. If it is, we can batch the default case
-			return
-		case x := <-c:
-			r.RegisterIntermediateResult(x)
-		}
-	}
-}
-
-// background thread responsible for printing results once a second, until the benchmark ends,
-// at which point will print final results.
-func printWrites(r ResultManager, quitChannel chan int, done *sync.WaitGroup) {
-	defer done.Done()
-	for {
-		select {
-		case <-quitChannel:
-			r.PrintFinalResults()
-			return
-		default:
-			r.PrintResults()
-			time.Sleep(1 * time.Second)
-		}
 	}
 }
 
@@ -180,20 +137,21 @@ func verifyWorks(works []WorkInfo, d time.Duration) {
 // If d > 0, the benchmark will run for the time defined by d. If d is 0, then the benchmark is designed
 // to finish a finite amount of work (like loading 10M documents into a collection), and not designed
 // to run for a certain amount of time. As a result, each element of works will have MaxOps > 0.
-func Run(res ResultManager, works []WorkInfo, d time.Duration) {
+func Run(metricSample interface{}, works []WorkInfo, d time.Duration) {
 	verifyWorks(works, d)
 	numWorkers := len(works)
 	log.Println("num workers ", numWorkers)
 	workersDone := sync.WaitGroup{}
-	registerDone := sync.WaitGroup{}
-	benchmarkDone := sync.WaitGroup{}
-	// not sure if this batching is wise
 	// this channel is used to communicate results
-	resultsChannel := make(chan Stats, 100)
+	metrics := make(chan interface{}, 100)
+	reporter := olbermann.Reporter{C: metrics}
+	go reporter.Feed()
+	if err := reporter.Start(metricSample, &olbermann.BasicDstatStyler); err != nil {
+		log.Fatal(err)
+	}
+	defer reporter.Close()
 	// probably a better way to do this
-	quitWorkerChannels := make([]chan int, numWorkers) // one for each work, one for registerWrites, and one for printWrites
-	registerWritesChannel := make(chan int)
-	printWritesChannel := make(chan int)
+	quitWorkerChannels := make([]chan int, numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		quitWorkerChannels[i] = make(chan int)
 	}
@@ -202,15 +160,11 @@ func Run(res ResultManager, works []WorkInfo, d time.Duration) {
 		// MaxOps <= 0 means we will be running for a certain amount of time
 		// and that there is no maximum
 		if works[i].MaxOps <= 0 {
-			go runTimeBasedWorker(works[i], resultsChannel, quitWorkerChannels[i], &workersDone)
+			go runTimeBasedWorker(works[i], metrics, quitWorkerChannels[i], &workersDone)
 		} else {
-			go runFiniteWorker(works[i], resultsChannel, &workersDone)
+			go runFiniteWorker(works[i], metrics, &workersDone)
 		}
 	}
-	registerDone.Add(1)
-	go registerWrites(res, resultsChannel, registerWritesChannel, &registerDone)
-	benchmarkDone.Add(1)
-	go printWrites(res, printWritesChannel, &benchmarkDone)
 	time.Sleep(d)
 	for i := 0; i < numWorkers; i++ {
 		if works[i].MaxOps <= 0 {
@@ -218,9 +172,4 @@ func Run(res ResultManager, works []WorkInfo, d time.Duration) {
 		}
 	}
 	workersDone.Wait()
-	// quit registerWrites and printWrites
-	registerWritesChannel <- 0
-	registerDone.Wait()
-	printWritesChannel <- 0
-	benchmarkDone.Wait()
 }

@@ -2,7 +2,6 @@ package partition_stress
 
 import (
 	"fmt"
-	"github.com/Tokutek/go-benchmark"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"time"
@@ -33,7 +32,7 @@ type AddPartitionWork struct {
 // longer than Interval defined in AddPartitionWork, then it adds a partition.
 // For example, if a.Interval is set to one hour, and the last partition was created
 // 61 minutes ago, this function will add a partition
-func (a AddPartitionWork) Do(c chan benchmark.Stats) {
+func (a AddPartitionWork) Do(c chan<- interface{}) {
 	coll := a.DB.C(a.Collname)
 	var result partitionInfo
 	err := a.DB.Run(bson.M{"getPartitionInfo": coll.Name}, &result)
@@ -73,7 +72,7 @@ type DropPartitionWork struct {
 // longer than Interval defined in DropPartitionWork, then it drops the first partition.
 // For example, if a.Interval is set to six hours, and the first partition was created
 // seven hours ago, this function will drop the first partition
-func (a DropPartitionWork) Do(c chan benchmark.Stats) {
+func (a DropPartitionWork) Do(c chan<- interface{}) {
 	coll := a.DB.C(a.Collname)
 	var result partitionInfo
 	err := a.DB.Run(bson.M{"getPartitionInfo": coll.Name}, &result)

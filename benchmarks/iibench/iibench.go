@@ -2,7 +2,6 @@ package iibench
 
 import (
 	"flag"
-	"fmt"
 	"github.com/Tokutek/go-benchmark"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -99,7 +98,7 @@ func NewQueryWork(s *mgo.Session, db string, coll string) benchmark.WorkInfo {
 	return benchmark.WorkInfo{qw, *queriesPerInterval, *queryInterval, 0}
 }
 
-func (qw *QueryWork) Do(c chan benchmark.Stats) {
+func (qw *QueryWork) Do(c chan<- interface{}) {
 	customerID := qw.randSource.Int31n(MaxNumCustomers)
 	cashRegisterID := qw.randSource.Int31n(MaxNumCashRegisters)
 	price := qw.randSource.Float64()*MaxPrice + float64(customerID)/100.0
@@ -150,25 +149,6 @@ func (qw *QueryWork) Close() {
 // implements ResultManager
 // used to print results of an iibench run
 type Result struct {
-	NumInserts          uint64
-	NumQueries          uint64
-	LastInsertsReported uint64
-	LastQueriesReported uint64
-}
-
-func (r *Result) PrintResults() {
-	lastInserts := r.NumInserts - r.LastInsertsReported
-	lastQueries := r.NumQueries - r.LastQueriesReported
-	fmt.Println("last insert", lastInserts, "total insert", r.NumInserts, "last queries", lastQueries, "total query", r.NumQueries)
-	r.LastInsertsReported = r.NumInserts
-	r.LastQueriesReported = r.NumQueries
-}
-
-func (r *Result) PrintFinalResults() {
-	fmt.Println("Benchmark done. Inserts: ", r.NumInserts, ", Queries: ", r.NumQueries)
-}
-
-func (r *Result) RegisterIntermediateResult(result benchmark.Stats) {
-	r.NumInserts += result.Inserts
-	r.NumQueries += result.Queries
+	NumInserts          uint64 `type:"counter" report:"iter,cum,total"`
+	NumQueries          uint64 `type:"counter" report:"iter,cum,total"`
 }

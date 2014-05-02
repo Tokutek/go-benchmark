@@ -26,7 +26,7 @@ type insertWork struct {
 	kill chan<- bool
 }
 
-func (w *insertWork) Do(c chan benchmark.Stats) {
+func (w *insertWork) Do(c chan<- interface{}) {
 	numInserted := 0
 	// if docsPerInsert is less than 50, we want
 	// to batch the operations before sending it over a channel
@@ -68,7 +68,7 @@ func NewInsertWork(gen DocGenerator, coll *mgo.Collection, numInsertsPerThread i
 			}
 			select {
 			case <-kill:
-				break
+				return
 			case ch <- docs:
 			}
 		}

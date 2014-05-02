@@ -43,15 +43,15 @@ func runQuery(filter bson.M, projection bson.M, coll *mgo.Collection) {
 	}
 }
 
-func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
+func (s SysbenchTransaction) Do(c chan<- interface{}) {
 	db := s.Session.DB(s.Dbname)
 	collectionIndex := s.RandSource.Int31n(int32(s.NumCollections))
 	coll := db.C(mongotools.GetCollectionString(s.Collname, int(collectionIndex)))
-	var result benchmark.Stats
+	var sbresult SysbenchResult
 
 	txn := mongotools.Transaction{DB: db}
 	if err := txn.Begin(); err != nil {
-		result.Errors++
+		sbresult.NumErrors++
 	}
 	defer txn.Close()
 
@@ -102,7 +102,7 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 		err := coll.Find(filter).Distinct("c", &distinctResults)
 		if err != nil {
 			// we got an error
-			result.Errors++
+			sbresult.NumErrors++
 		}
 	}
 	if !s.ReadOnly {
@@ -112,7 +112,7 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 			err := coll.Update(bson.M{"_id": randID}, bson.M{"$inc": bson.M{"k": 1}})
 			if err != nil {
 				// we got an error
-				result.Errors++
+				sbresult.NumErrors++
 			}
 		}
 		for i = 0; i < s.Info.oltpNonIndexUpdates; i++ {
@@ -121,7 +121,7 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 			err := coll.Update(bson.M{"_id": randID}, bson.M{"$set": bson.M{"c": sysbench.CString(s.RandSource)}})
 			if err != nil {
 				// we got an error
-				result.Errors++
+				sbresult.NumErrors++
 			}
 		}
 	}
@@ -131,7 +131,7 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 	err := coll.Remove(bson.M{"_id": randID})
 	if err != nil {
 		// we got an error
-		result.Errors++
+		sbresult.NumErrors++
 	}
 	// TODO: re-insert the ID
 	err = coll.Insert(sysbench.Doc{
@@ -141,14 +141,14 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 		sysbench.PadString(s.RandSource)})
 	if err != nil {
 		// we got an error
-		result.Errors++
+		sbresult.NumErrors++
 	} else {
 		txn.Commit()
 	}
 
 	// send result over channel
-	result.Operations++
-	c <- result
+	sbresult.NumTransactions++
+	c <- sbresult
 }
 
 func (s SysbenchTransaction) Close() {
@@ -156,27 +156,8 @@ func (s SysbenchTransaction) Close() {
 
 // implements ResultManager
 type SysbenchResult struct {
-	NumTransactions     uint64
-	NumErrors           uint64
-	LastNumTransactions uint64
-	LastNumErrors       uint64
-}
-
-func (r *SysbenchResult) PrintResults() {
-	lastTransactions := r.NumTransactions - r.LastNumTransactions
-	lastErrors := r.NumErrors - r.LastNumErrors
-	fmt.Println("last transactions", lastTransactions, "total transactions", r.NumTransactions, "last errors", lastErrors, "total errors", r.NumErrors)
-	r.LastNumTransactions = r.NumTransactions
-	r.LastNumErrors = r.NumErrors
-}
-
-func (r *SysbenchResult) PrintFinalResults() {
-	fmt.Println("Benchmark done. Transactions: ", r.NumTransactions, ", Errors: ", r.NumErrors)
-}
-
-func (r *SysbenchResult) RegisterIntermediateResult(result benchmark.Stats) {
-	r.NumTransactions += result.Operations
-	r.NumErrors += result.Errors
+	NumTransactions     uint64 `type:"counter" report:"iter,cum,total"`
+	NumErrors           uint64 `type:"counter" report:"total"`
 }
 
 var (
