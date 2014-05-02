@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"github.com/Tokutek/go-benchmark"
@@ -46,19 +47,19 @@ var ctemplate string = "###########-###########-###########-###########-########
 var padtemplate string = "###########-###########-###########-###########-###########"
 
 func SysbenchString(template string, randSource *rand.Rand) string {
-	var bytes = make([]byte, len(template))
+	var buf bytes.Buffer
 	alpha := "abcdefghijklmnopqrstuvwxyz"
 	nums := "0123456789"
 	for i := 0; i < len(template); i++ {
 		if template[i] == '#' {
-			bytes[i] = nums[randSource.Int31n(int32(len(nums)))]
+			buf.WriteByte(nums[randSource.Int31n(int32(len(nums)))])
 		} else if template[i] == '@' {
-			bytes[i] += alpha[randSource.Int31n(int32(len(alpha)))]
+			buf.WriteByte(alpha[randSource.Int31n(int32(len(alpha)))])
 		} else {
-			bytes[i] += template[i]
+			buf.WriteByte(template[i])
 		}
 	}
-	return string(bytes)
+	return buf.String()
 }
 
 func runQuery(filter bson.M, projection bson.M, coll *mgo.Collection) {
