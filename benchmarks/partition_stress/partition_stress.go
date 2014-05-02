@@ -56,6 +56,10 @@ func (a AddPartitionWork) Do(c chan benchmark.Stats) {
 	}
 }
 
+// closes the session used to add partitions
+func (a AddPartitionWork) Close() {
+}
+
 // a Work used to drop partitions of a partitioned
 // collection. To work, -partition=true must be used when creating
 // the benchmark, otherwise, this work will spit errors.
@@ -91,4 +95,7 @@ func (a DropPartitionWork) Do(c chan benchmark.Stats) {
 	} else {
 		fmt.Println("error while getting Partition info, ", err)
 	}
+}
+
+func (a DropPartitionWork) Close() {
 }

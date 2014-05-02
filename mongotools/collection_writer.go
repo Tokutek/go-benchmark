@@ -46,6 +46,9 @@ func (w *insertWork) Do(c chan benchmark.Stats) {
 	c <- benchmark.Stats{Inserts: uint64(numInserted)}
 }
 
+func (w *insertWork) Close() {
+}
+
 // returns a WorkInfo that can be used for loading documents into a collection
 // This is essentially a helper function for the purpose of loading data into collections,
 // be it an iibench writer or a sysbench trickle loader. The caller defines how to generate

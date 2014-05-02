@@ -144,6 +144,9 @@ func (qw *QueryWork) Do(c chan benchmark.Stats) {
 	c <- benchmark.Stats{Queries: 1}
 }
 
+func (qw *QueryWork) Close() {
+}
+
 // implements ResultManager
 // used to print results of an iibench run
 type Result struct {

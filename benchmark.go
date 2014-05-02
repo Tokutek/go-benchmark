@@ -23,6 +23,8 @@ type Work interface {
 	// While the benchmark is running, Do is called repeatedly.
 	// The function is responsible for sending results over the channel.
 	Do(c chan Stats)
+	// Cleanup any state needed before closing the benchmark.
+	Close()
 }
 
 // an interface responsible for reporting results of the benchmark as it is running
@@ -93,6 +95,7 @@ func runTimeBasedWorker(w WorkInfo, c chan Stats, quitChannel chan int, done *sy
 		log.Fatal("calling runFiniteWorker with w.MaxOps ", w.MaxOps, " which is invalid. w.MaxOps must be <= 0")
 	}
 	defer done.Done()
+	defer w.Work.Close()
 	o := operationGater{t0: time.Now()}
 	for {
 		select {
@@ -115,6 +118,7 @@ func runFiniteWorker(w WorkInfo, c chan Stats, done *sync.WaitGroup) {
 		log.Fatal("calling runFiniteWorker with w.MaxOps ", w.MaxOps, " which is invalid. w.MaxOps must be > 0")
 	}
 	defer done.Done()
+	defer w.Work.Close()
 	o := operationGater{t0: time.Now()}
 	for numOps := uint64(0); numOps < w.MaxOps; numOps++ {
 		w.Work.Do(c)

@@ -57,6 +57,12 @@ type SysbenchWriter struct {
 	writers []benchmark.WorkInfo
 }
 
+func (w SysbenchWriter) Close() {
+	for x := range w.writers {
+		w.writers[x].Work.Close()
+	}
+}
+
 func (w SysbenchWriter) Do(c chan benchmark.Stats) {
 	for x := range w.writers {
 		w.writers[x].Work.Do(c)

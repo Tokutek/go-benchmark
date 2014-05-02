@@ -176,6 +176,9 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 	c <- result
 }
 
+func (s SysbenchTransaction) Close() {
+}
+
 // implements ResultManager
 type SysbenchResult struct {
 	NumTransactions     uint64
