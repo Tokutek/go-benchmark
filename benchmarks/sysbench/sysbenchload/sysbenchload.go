@@ -4,6 +4,7 @@ import (
 	"flag"
 	"github.com/Tokutek/go-benchmark"
 	"github.com/Tokutek/go-benchmark/benchmarks/iibench"
+	"github.com/Tokutek/go-benchmark/benchmarks/sysbench"
 	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"log"
@@ -11,43 +12,17 @@ import (
 	"time"
 )
 
-type SysbenchDoc struct {
-	Id  uint64 "_id"
-	K   int    "k"
-	C   string "c"
-	Pad string "pad"
-}
-
-var ctemplate string = "###########-###########-###########-###########-###########-###########-###########-###########-###########-###########"
-var padtemplate string = "###########-###########-###########-###########-###########"
-
-func SysbenchString(template string, randSource *rand.Rand) string {
-	var bytes = make([]byte, len(template))
-	alpha := "abcdefghijklmnopqrstuvwxyz"
-	nums := "0123456789"
-	for i := 0; i < len(template); i++ {
-		if template[i] == '#' {
-			bytes[i] = nums[randSource.Int31n(int32(len(nums)))]
-		} else if template[i] == '@' {
-			bytes[i] += alpha[randSource.Int31n(int32(len(alpha)))]
-		} else {
-			bytes[i] += template[i]
-		}
-	}
-	return string(bytes)
-}
-
 type SysbenchDocGenerator struct {
 	RandSource *rand.Rand
 	currID     uint64
 }
 
 func (generator *SysbenchDocGenerator) Generate() interface{} {
-	ret := SysbenchDoc{
+	ret := sysbench.Doc{
 		generator.currID,
 		generator.RandSource.Int(),
-		SysbenchString(ctemplate, generator.RandSource),
-		SysbenchString(padtemplate, generator.RandSource)}
+		sysbench.CString(generator.RandSource),
+		sysbench.PadString(generator.RandSource)}
 	generator.currID++
 	return ret
 }

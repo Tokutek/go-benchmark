@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/benchmarks/sysbench"
 	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -34,32 +34,6 @@ type SysbenchTransaction struct {
 	NumCollections int
 	ReadOnly       bool
 	MaxID          int64
-}
-
-type SysbenchDoc struct {
-	Id  uint64 "_id"
-	K   int    "k"
-	C   string "c"
-	Pad string "pad"
-}
-
-var ctemplate string = "###########-###########-###########-###########-###########-###########-###########-###########-###########-###########"
-var padtemplate string = "###########-###########-###########-###########-###########"
-
-func SysbenchString(template string, randSource *rand.Rand) string {
-	var buf bytes.Buffer
-	alpha := "abcdefghijklmnopqrstuvwxyz"
-	nums := "0123456789"
-	for i := 0; i < len(template); i++ {
-		if template[i] == '#' {
-			buf.WriteByte(nums[randSource.Int31n(int32(len(nums)))])
-		} else if template[i] == '@' {
-			buf.WriteByte(alpha[randSource.Int31n(int32(len(alpha)))])
-		} else {
-			buf.WriteByte(template[i])
-		}
-	}
-	return buf.String()
 }
 
 func runQuery(filter bson.M, projection bson.M, coll *mgo.Collection) {
@@ -144,7 +118,7 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 		for i = 0; i < s.Info.oltpNonIndexUpdates; i++ {
 			//db.sbtest8.update({_id: 5523412}, {$set: {c: "hello there"}}, false, false)
 			randID := s.RandSource.Int63n(s.MaxID)
-			err := coll.Update(bson.M{"_id": randID}, bson.M{"$set": bson.M{"c": SysbenchString(ctemplate, s.RandSource)}})
+			err := coll.Update(bson.M{"_id": randID}, bson.M{"$set": bson.M{"c": sysbench.CString(s.RandSource)}})
 			if err != nil {
 				// we got an error
 				result.Errors++
@@ -160,11 +134,11 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 		result.Errors++
 	}
 	// TODO: re-insert the ID
-	err = coll.Insert(SysbenchDoc{
+	err = coll.Insert(sysbench.Doc{
 		uint64(randID),
 		s.RandSource.Int(),
-		SysbenchString(ctemplate, s.RandSource),
-		SysbenchString(padtemplate, s.RandSource)})
+		sysbench.CString(s.RandSource),
+		sysbench.PadString(s.RandSource)})
 	if err != nil {
 		// we got an error
 		result.Errors++
@@ -205,29 +179,32 @@ func (r *SysbenchResult) RegisterIntermediateResult(result benchmark.Stats) {
 	r.NumErrors += result.Errors
 }
 
-func main() {
+var (
 	// needed for making/accessing collections:
-	host := flag.String("host", "localhost", "host:port string of database to connect to")
-	dbname := flag.String("db", "sysbench", "dbname")
-	collname := flag.String("coll", "sbtest", "collname")
-	numCollections := flag.Int("numCollections", 16, "number of collections")
-	readOnly := flag.Bool("readOnly", false, "if true, then updates excluded from benchmark")
+	host           = flag.String("host", "localhost", "host:port string of database to connect to")
+	dbname         = flag.String("db", "sysbench", "dbname")
+	collname       = flag.String("coll", "sbtest", "collname")
+	numCollections = flag.Int("numCollections", 16, "number of collections")
+	readOnly       = flag.Bool("readOnly", false, "if true, then updates excluded from benchmark")
 
 	// for benchmark
-	numThreads := flag.Uint("numThreads", 16, "specify the number of threads")
-	numMaxInserts := flag.Int64("numMaxInserts", 100, "number of documents in each collection")
-	numSeconds := flag.Uint64("numSeconds", 5, "number of seconds the benchmark is to run.")
-	numMaxTPS := flag.Uint64("numMaxTPS", 0, "number of maximum transactions to process. If 0, then unlimited")
+	numThreads    = flag.Uint("numThreads", 16, "specify the number of threads")
+	numMaxInserts = flag.Int64("numMaxInserts", 100, "number of documents in each collection")
+	numSeconds    = flag.Uint64("numSeconds", 5, "number of seconds the benchmark is to run.")
+	numMaxTPS     = flag.Uint64("numMaxTPS", 0, "number of maximum transactions to process. If 0, then unlimited")
 
 	// for the Work
-	oltpRangeSize := flag.Uint("oltpRangeSize", 100, "size of range queries in each transaction")
-	oltpPointSelects := flag.Uint("oltpPointSelects", 10, "number of point queries by _id per transaction")
-	oltpSimpleRanges := flag.Uint("oltpSimpleRanges", 1, "number of simple range queries per transaction")
-	oltpSumRanges := flag.Uint("oltpSumRanges", 1, "number of aggregation queries that sum a field per transaction")
-	oltpOrderRanges := flag.Uint("oltpOrderRanges", 1, "number of range queries sorted on a field per transaction")
-	oltpDistinctRanges := flag.Uint("oltpDistinctRanges", 1, "number of aggregation queries using disting per transaction ")
-	oltpIndexUpdates := flag.Uint("oltpIndexUpdates", 1, "number of updates on an indexed field per transaction")
-	oltpNonIndexUpdates := flag.Uint("oltpNonIndexUpdates", 1, "number of updates on a non-indexed field per transaction")
+	oltpRangeSize       = flag.Uint("oltpRangeSize", 100, "size of range queries in each transaction")
+	oltpPointSelects    = flag.Uint("oltpPointSelects", 10, "number of point queries by _id per transaction")
+	oltpSimpleRanges    = flag.Uint("oltpSimpleRanges", 1, "number of simple range queries per transaction")
+	oltpSumRanges       = flag.Uint("oltpSumRanges", 1, "number of aggregation queries that sum a field per transaction")
+	oltpOrderRanges     = flag.Uint("oltpOrderRanges", 1, "number of range queries sorted on a field per transaction")
+	oltpDistinctRanges  = flag.Uint("oltpDistinctRanges", 1, "number of aggregation queries using disting per transaction ")
+	oltpIndexUpdates    = flag.Uint("oltpIndexUpdates", 1, "number of updates on an indexed field per transaction")
+	oltpNonIndexUpdates = flag.Uint("oltpNonIndexUpdates", 1, "number of updates on a non-indexed field per transaction")
+)
+
+func main() {
 	flag.Parse()
 
 	numTPSPerThread := (*numMaxTPS) / (uint64(*numThreads))
