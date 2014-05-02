@@ -34,7 +34,7 @@ func main() {
 
 	mongotools.MakeCollections(collname, dbname, 1, session, indexes)
 	// at this point we have created the collection, now run the benchmark
-	res := new(iibench.IIBenchResult)
+	res := new(iibench.Result)
 	numWriters := 8
 	numQueryThreads := 16
 	workers := make([]benchmark.WorkInfo, 0, numWriters+numQueryThreads)

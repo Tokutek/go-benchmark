@@ -98,7 +98,7 @@ func main() {
 
 	mongotools.MakeCollections(*collname, *dbname, *numCollections, session, indexes)
 	// at this point we have created the collection, now run the benchmark
-	res := new(iibench.IIBenchResult)
+	res := new(iibench.Result)
 	workers := make([]benchmark.WorkInfo, 0, *numWriters)
 
 	var writers []SysbenchWriter = make([]SysbenchWriter, *numWriters)

@@ -151,14 +151,14 @@ func (qw *QueryWork) Close() {
 
 // implements ResultManager
 // used to print results of an iibench run
-type IIBenchResult struct {
+type Result struct {
 	NumInserts          uint64
 	NumQueries          uint64
 	LastInsertsReported uint64
 	LastQueriesReported uint64
 }
 
-func (r *IIBenchResult) PrintResults() {
+func (r *Result) PrintResults() {
 	lastInserts := r.NumInserts - r.LastInsertsReported
 	lastQueries := r.NumQueries - r.LastQueriesReported
 	fmt.Println("last insert", lastInserts, "total insert", r.NumInserts, "last queries", lastQueries, "total query", r.NumQueries)
@@ -166,11 +166,11 @@ func (r *IIBenchResult) PrintResults() {
 	r.LastQueriesReported = r.NumQueries
 }
 
-func (r *IIBenchResult) PrintFinalResults() {
+func (r *Result) PrintFinalResults() {
 	fmt.Println("Benchmark done. Inserts: ", r.NumInserts, ", Queries: ", r.NumQueries)
 }
 
-func (r *IIBenchResult) RegisterIntermediateResult(result benchmark.Stats) {
+func (r *Result) RegisterIntermediateResult(result benchmark.Stats) {
 	r.NumInserts += result.Inserts
 	r.NumQueries += result.Queries
 }
