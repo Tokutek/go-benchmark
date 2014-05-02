@@ -21,22 +21,19 @@ type DocGenerator interface {
 
 // implements Work
 type insertWork struct {
-	coll          *mgo.Collection
-	docsPerInsert int
-	gen           DocGenerator
+	coll *mgo.Collection
+	ch   <-chan []interface{}
+	kill chan<- bool
 }
 
 func (w *insertWork) Do(c chan benchmark.Stats) {
 	numInserted := 0
-	docs := make([]interface{}, w.docsPerInsert)
 	// if docsPerInsert is less than 50, we want
 	// to batch the operations before sending it over a channel
 	// This is an attempt to get 10% back from iibench
 	// when docsPerInsert=1
 	for numInserted < minBatchSizeForChannel {
-		for i := 0; i < len(docs); i++ {
-			docs[i] = w.gen.Generate()
-		}
+		docs := <-w.ch
 		err := w.coll.Insert(docs...)
 		if err != nil {
 			log.Print("received error ", err)
@@ -47,6 +44,8 @@ func (w *insertWork) Do(c chan benchmark.Stats) {
 }
 
 func (w *insertWork) Close() {
+	w.kill <- true
+	close(w.kill)
 }
 
 // returns a WorkInfo that can be used for loading documents into a collection
@@ -56,13 +55,25 @@ func (w *insertWork) Close() {
 // do (with 0 meaning unlimited and that the benchmark is bounded by time), and a WorkInfo is returned
 // This file exports flags "docsPerInsert" that defines the batching of the writer, "insertsPerInterval" and "insertInterval"
 // to define whether there should be any gating.
-func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string, collname string, numInsertsPerThread int) benchmark.WorkInfo {
-	db := session.DB(dbname)
-	coll := db.C(collname)
-	writer := &insertWork{
-		coll,
-		*docsPerInsert,
-		gen}
+func NewInsertWork(gen DocGenerator, coll *mgo.Collection, numInsertsPerThread int) benchmark.WorkInfo {
+	kill := make(chan bool)
+	ch := make(chan []interface{}, 10)
+	go func() {
+		defer close(ch)
+		dpi := *docsPerInsert
+		for {
+			docs := make([]interface{}, dpi)
+			for i := range docs {
+				docs[i] = gen.Generate()
+			}
+			select {
+			case <-kill:
+				break
+			case ch <- docs:
+			}
+		}
+	}()
+	writer := &insertWork{coll, ch, kill}
 	var (
 		numOps         int
 		opsPerInterval int

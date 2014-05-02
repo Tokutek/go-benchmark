@@ -110,7 +110,7 @@ func main() {
 		currCollectionString := mongotools.GetCollectionString(*collname, i)
 		var gen *SysbenchDocGenerator = new(SysbenchDocGenerator)
 		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))
-		var curr benchmark.WorkInfo = mongotools.MakeCollectionWriter(gen, copiedSession, *dbname, currCollectionString, *numInsertsPerCollection)
+		var curr benchmark.WorkInfo = mongotools.NewInsertWork(gen, copiedSession.DB(*dbname).C(currCollectionString), *numInsertsPerCollection)
 		writers[i%*numWriters].writers = append(writers[i%*numWriters].writers, curr)
 	}
 	for i := 0; i < *numWriters; i++ {

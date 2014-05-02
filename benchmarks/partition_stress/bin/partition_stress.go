@@ -45,7 +45,7 @@ func main() {
 		var gen = iibench.NewDocGenerator()
 		gen.CharFieldLength = 100
 		gen.NumCharFields = 0
-		workers = append(workers, mongotools.MakeCollectionWriter(gen, copiedSession, dbname, currCollectionString, 0))
+		workers = append(workers, mongotools.NewInsertWork(gen, copiedSession.DB(dbname).C(currCollectionString), 0))
 	}
 	for i := 0; i < numQueryThreads; i++ {
 		copiedSession := session.Copy()

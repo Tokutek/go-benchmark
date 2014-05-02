@@ -52,7 +52,7 @@ func main() {
 		defer copiedSession.Close()
 		var gen = iibench.NewDocGenerator()
 		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
-		workers = append(workers, mongotools.MakeCollectionWriter(gen, copiedSession, *dbname, currCollectionString, *numInsertsPerThread))
+		workers = append(workers, mongotools.NewInsertWork(gen, copiedSession.DB(*dbname).C(currCollectionString), *numInsertsPerThread))
 	}
 	for i := 0; i < *numQueryThreads; i++ {
 		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
