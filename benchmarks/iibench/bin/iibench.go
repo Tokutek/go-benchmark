@@ -11,28 +11,24 @@ import (
 	"time"
 )
 
-func main() {
-	// needed for making/accessing collections:
-	host := flag.String("host", "localhost", "host:port string of database to connect to")
-	dbname := flag.String("db", "iibench", "dbname")
-	collname := flag.String("coll", "purchases_index", "collname")
-	numCollections := flag.Int("numCollections", 1, "number of collections to simultaneously run on")
+var (
+	host           = flag.String("host", "localhost", "host:port string of database to connect to")
+	dbname         = flag.String("db", "iibench", "dbname")
+	collname       = flag.String("coll", "purchases_index", "collname")
+	numCollections = flag.Int("numCollections", 1, "number of collections to simultaneously run on")
 
 	// doc generator specific variables:
-	numCharFields := flag.Int("numCharFields", 0, "specify the number of additional char fields stored in an array")
-	charFieldLength := flag.Int("charFieldLength", 5, "specify length of char fields")
-
-	// for IIBenchQuery
-	queryResultLimit := flag.Int("queryResultLimit", 10, "number of results queries should be limited to")
-	queriesPerInterval := flag.Uint64("queriesPerInterval", 100, "max queries per interval, 0 means unlimited")
-	queryInterval := flag.Uint64("queryInterval", 1, "interval for queries, in seconds, meant to be used with -queriesPerInterval")
+	numCharFields   = flag.Int("numCharFields", 0, "specify the number of additional char fields stored in an array")
+	charFieldLength = flag.Int("charFieldLength", 5, "specify length of char fields")
 
 	// for benchmark
-	numWriters := flag.Int("numWriterThreads", 1, "specify the number of writer threads")
-	numQueryThreads := flag.Int("numQueryThreads", 0, "specify the number of threads to perform queries")
-	numSeconds := flag.Int64("numSeconds", 5, "number of seconds the benchmark is to run. If this value is > 0, then numInsertsPerThread MUST be 0, and vice versa")
-	numInsertsPerThread := flag.Uint64("numInsertsPerThread", 0, "number of inserts to be done per thread. If this value is > 0, then numSeconds MUST be 0 and numQueryThreads MUST be 0")
+	numWriters          = flag.Int("numWriterThreads", 1, "specify the number of writer threads")
+	numQueryThreads     = flag.Int("numQueryThreads", 0, "specify the number of threads to perform queries")
+	numSeconds          = flag.Int64("numSeconds", 5, "number of seconds the benchmark is to run. If this value is > 0, then numInsertsPerThread MUST be 0, and vice versa")
+	numInsertsPerThread = flag.Uint64("numInsertsPerThread", 0, "number of inserts to be done per thread. If this value is > 0, then numSeconds MUST be 0 and numQueryThreads MUST be 0")
+)
 
+func main() {
 	flag.Parse()
 
 	if *numInsertsPerThread > 0 && (*numQueryThreads > 0 || *numSeconds > 0) {
@@ -70,16 +66,7 @@ func main() {
 		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
-		query := iibench.IIBenchQuery{
-			copiedSession,
-			*dbname,
-			currCollectionString,
-			rand.New(rand.NewSource(time.Now().UnixNano())),
-			time.Now(),
-			*queryResultLimit,
-			0}
-		workInfo := benchmark.WorkInfo{query, *queriesPerInterval, *queryInterval, 0}
-		workers = append(workers, workInfo)
+		workers = append(workers, iibench.NewQueryWork(copiedSession, *dbname, currCollectionString))
 	}
 	benchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)
 }

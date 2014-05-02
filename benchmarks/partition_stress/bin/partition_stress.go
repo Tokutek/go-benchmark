@@ -52,27 +52,18 @@ func main() {
 	for i := 0; i < numQueryThreads; i++ {
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
-		query := iibench.IIBenchQuery{
-			copiedSession,
-			dbname,
-			currCollectionString,
-			rand.New(rand.NewSource(time.Now().UnixNano())),
-			time.Now(),
-			100,
-			0}
-		workInfo := benchmark.WorkInfo{query, 0, 0, 0}
-		workers = append(workers, workInfo)
+		workers = append(workers, iibench.NewQueryWork(copiedSession, dbname, currCollectionString))
 	}
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
-		var addPartitionItem = partition_stress.AddPartitionWorkItem{copiedSession, dbname, currCollectionString, time.Hour}
+		var addPartitionItem = partition_stress.AddPartitionWork{copiedSession, dbname, currCollectionString, time.Hour}
 		workers = append(workers, benchmark.WorkInfo{addPartitionItem, 1, 1, 0})
 	}
 	{
 		copiedSession := session.Copy()
 		copiedSession.SetSafe(&mgo.Safe{})
-		var dropPartitionItem = partition_stress.DropPartitionWorkItem{copiedSession, dbname, currCollectionString, 7 * time.Hour}
+		var dropPartitionItem = partition_stress.DropPartitionWork{copiedSession, dbname, currCollectionString, 7 * time.Hour}
 		workers = append(workers, benchmark.WorkInfo{dropPartitionItem, 1, 1, 0})
 	}
 	// have this go for a looooooong time

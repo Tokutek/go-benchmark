@@ -52,20 +52,20 @@ func (generator *SysbenchDocGenerator) MakeDoc() interface{} {
 	return ret
 }
 
-// implements WorkItem
+// implements Work
 type SysbenchWriter struct {
 	writers []benchmark.WorkInfo
 }
 
 func (w SysbenchWriter) Close() {
 	for x := range w.writers {
-		w.writers[x].WorkItem.Close()
+		w.writers[x].Work.Close()
 	}
 }
 
-func (w SysbenchWriter) DoWork(c chan benchmark.Stats) {
+func (w SysbenchWriter) Do(c chan benchmark.Stats) {
 	for x := range w.writers {
-		w.writers[x].WorkItem.DoWork(c)
+		w.writers[x].Work.Do(c)
 	}
 }
 
@@ -110,7 +110,7 @@ func main() {
 		writers[i%*numWriters].writers = append(writers[i%*numWriters].writers, curr)
 	}
 	for i := 0; i < *numWriters; i++ {
-		var curr benchmark.WorkInfo = benchmark.WorkInfo{WorkItem: writers[i]}
+		var curr benchmark.WorkInfo = benchmark.WorkInfo{Work: writers[i]}
 		curr.MaxOps = writers[i].writers[0].MaxOps
 		workers = append(workers, curr)
 	}

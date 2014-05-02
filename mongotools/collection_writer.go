@@ -20,7 +20,7 @@ type DocGenerator interface {
 	MakeDoc() interface{}
 }
 
-// implements WorkItem
+// implements Work
 type collectionWriter struct {
 	Session       *mgo.Session
 	Coll          *mgo.Collection
@@ -28,7 +28,7 @@ type collectionWriter struct {
 	Gen           DocGenerator
 }
 
-func (w collectionWriter) DoWork(c chan benchmark.Stats) {
+func (w collectionWriter) Do(c chan benchmark.Stats) {
 	var numInserted uint64
 	docs := make([]interface{}, w.DocsPerInsert)
 	// if docsPerInsert is less than 50, we want

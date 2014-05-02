@@ -6,9 +6,9 @@ import (
 	"time"
 )
 
-// Current struct used to transfer results from a WorkItem
-// to a ResultManager. Note that he channel a WorkItem
-// has as an input parameter to DoWork() is of this type.
+// Current struct used to transfer results from a Work
+// to a ResultManager. Note that he channel a Work
+// has as an input parameter to Do() is of this type.
 type Stats struct {
 	Inserts    uint64
 	Deletes    uint64
@@ -19,10 +19,10 @@ type Stats struct {
 }
 
 // An interface that defines work to be run on a thread.
-type WorkItem interface {
-	// While the benchmark is running, DoWork is called repeatedly.
+type Work interface {
+	// While the benchmark is running, Do is called repeatedly.
 	// The funtion is responsible for sending results over the channel.
-	DoWork(c chan Stats)
+	Do(c chan Stats)
 	// Cleanup any state needed before closing the benchmark. Typically,
 	// this closes a session that a mongodb benchmark would use
 	Close()
@@ -37,22 +37,22 @@ type ResultManager interface {
 	// an opportunity to print a summary of the entire run.
 	PrintFinalResults()
 	// Method responsible for aggregating results that an individual
-	// WorkItem sends over the channel provided in WorkItem.DoWork
+	// Work sends over the channel provided in Work.Do
 	RegisterIntermediateResult(r Stats)
 }
 
 // Defines information about what a background thread's work.
 //
 type WorkInfo struct {
-	// The workitem that is to being run throughout the benchmark
-	WorkItem WorkItem
+	// The work that is to being run throughout the benchmark
+	Work Work
 	// The maximum number of operations to run within WorkInfo.IntervalInSeconds
 	// 0 means unlimited.
 	OpsPerInterval uint64
-	// Defines the period during for WorkItem.OpsPerInterval. So, for example,
+	// Defines the period during for Work.OpsPerInterval. So, for example,
 	// if OpsPerInterval is set to 100, and IntervalInSeconds is set to 1, then
 	// this thread will do at most 100 operations per second.
-	// 0 means there is no interval, and that WorkItem may run as often as possible
+	// 0 means there is no interval, and that Work may run as often as possible
 	IntervalInSeconds uint64
 	// The maximum number of operations this thread may run. This is used for benchmarks
 	// that are designed to run a certain amount of work as opposed to run for a certain
@@ -90,44 +90,44 @@ func (o *operationGater) gateOperations(w WorkInfo) {
 // run a WorkInfo repeatedly until we get a message over the
 // quitChannel telling us to exit
 func runTimeBasedWorker(w WorkInfo, c chan Stats, quitChannel chan int, done *sync.WaitGroup) {
-	// this should never happen, as we've already called verifyWorkItems,
+	// this should never happen, as we've already called verifyWorks,
 	// but it doesn't hurt
 	if w.MaxOps > 0 {
 		log.Fatal("calling runFiniteWorker with w.MaxOps ", w.MaxOps, " which is invalid. w.MaxOps must be <= 0")
 	}
 	defer done.Done()
-	defer w.WorkItem.Close()
+	defer w.Work.Close()
 	o := operationGater{t0: time.Now()}
 	for {
 		select {
 		case <-quitChannel: // I hope this check is not too inefficient. If it is, we can batch the default case
 			return
 		default:
-			w.WorkItem.DoWork(c)
+			w.Work.Do(c)
 		}
 		o.gateOperations(w)
 	}
 }
 
 // run a WorkInfo for a finite number of operations. There is no way
-// to get this function to exit early. It exits once the w.WorkItem has
+// to get this function to exit early. It exits once the w.Work has
 // been executed w.MaxOps times
 func runFiniteWorker(w WorkInfo, c chan Stats, done *sync.WaitGroup) {
-	// this should never happen, as we've already called verifyWorkItems,
+	// this should never happen, as we've already called verifyWorks,
 	// but it doesn't hurt
 	if w.MaxOps <= 0 {
 		log.Fatal("calling runFiniteWorker with w.MaxOps ", w.MaxOps, " which is invalid. w.MaxOps must be > 0")
 	}
 	defer done.Done()
-	defer w.WorkItem.Close()
+	defer w.Work.Close()
 	o := operationGater{t0: time.Now()}
 	for numOps := uint64(0); numOps < w.MaxOps; numOps++ {
-		w.WorkItem.DoWork(c)
+		w.Work.Do(c)
 		o.gateOperations(w)
 	}
 }
 
-// background thread responsible for accumulating results that WorkItems send
+// background thread responsible for accumulating results that Works send
 func registerWrites(r ResultManager, c chan Stats, quitChannel chan int, done *sync.WaitGroup) {
 	defer done.Done()
 	for {
@@ -156,34 +156,34 @@ func printWrites(r ResultManager, quitChannel chan int, done *sync.WaitGroup) {
 	}
 }
 
-// verify that either all the workItems are time based, meaning d > 0
-// or that all the workItems are finite, meaning MaxOps > 0
-func verifyWorkItems(workItems []WorkInfo, d time.Duration) {
+// verify that either all the works are time based, meaning d > 0
+// or that all the works are finite, meaning MaxOps > 0
+func verifyWorks(works []WorkInfo, d time.Duration) {
 	if d <= time.Duration(0) {
-		for i := range workItems {
-			if workItems[i].MaxOps <= 0 {
-				log.Fatal("Have a benchmark time <= 0, ", d, ", but workItem ", i, " has MaxOps <= 0, ", workItems[i].MaxOps, ". It should be > 0")
+		for i := range works {
+			if works[i].MaxOps <= 0 {
+				log.Fatal("Have a benchmark time <= 0, ", d, ", but work ", i, " has MaxOps <= 0, ", works[i].MaxOps, ". It should be > 0")
 			}
 		}
 	} else {
-		for i := range workItems {
-			if workItems[i].MaxOps > 0 {
-				log.Fatal("Have a benchmark time > 0, ", d, ", but workItem ", i, " has MaxOps > 0, ", workItems[i].MaxOps, ". It should be <= 0")
+		for i := range works {
+			if works[i].MaxOps > 0 {
+				log.Fatal("Have a benchmark time > 0, ", d, ", but work ", i, " has MaxOps > 0, ", works[i].MaxOps, ". It should be <= 0")
 			}
 		}
 	}
 }
 
-// runs a benchmark by having each member of workItems run its WorkItem repeatedly
-// in a background thread. The number of threads doing work is equal to len(workItems).
+// runs a benchmark by having each member of works run its Work repeatedly
+// in a background thread. The number of threads doing work is equal to len(works).
 // So, for example, if iibench is running with 4 writer threads and two query threads, then
-// workItems will have six elements, four threads for the inserts, and two threads for queries.
+// works will have six elements, four threads for the inserts, and two threads for queries.
 // If d > 0, the benchmark will run for the time defined by d. If d is 0, then the benchmark is designed
 // to finish a finite amount of work (like loading 10M documents into a collection), and not designed
-// to run for a certain amount of time. As a result, each element of workItems will have MaxOps > 0.
-func Run(res ResultManager, workItems []WorkInfo, d time.Duration) {
-	verifyWorkItems(workItems, d)
-	numWorkers := len(workItems)
+// to run for a certain amount of time. As a result, each element of works will have MaxOps > 0.
+func Run(res ResultManager, works []WorkInfo, d time.Duration) {
+	verifyWorks(works, d)
+	numWorkers := len(works)
 	log.Println("num workers ", numWorkers)
 	workersDone := sync.WaitGroup{}
 	registerDone := sync.WaitGroup{}
@@ -192,7 +192,7 @@ func Run(res ResultManager, workItems []WorkInfo, d time.Duration) {
 	// this channel is used to communicate results
 	resultsChannel := make(chan Stats, 100)
 	// probably a better way to do this
-	quitWorkerChannels := make([]chan int, numWorkers) // one for each workitem, one for registerWrites, and one for printWrites
+	quitWorkerChannels := make([]chan int, numWorkers) // one for each work, one for registerWrites, and one for printWrites
 	registerWritesChannel := make(chan int)
 	printWritesChannel := make(chan int)
 	for i := 0; i < numWorkers; i++ {
@@ -202,10 +202,10 @@ func Run(res ResultManager, workItems []WorkInfo, d time.Duration) {
 		workersDone.Add(1)
 		// MaxOps <= 0 means we will be running for a certain amount of time
 		// and that there is no maximum
-		if workItems[i].MaxOps <= 0 {
-			go runTimeBasedWorker(workItems[i], resultsChannel, quitWorkerChannels[i], &workersDone)
+		if works[i].MaxOps <= 0 {
+			go runTimeBasedWorker(works[i], resultsChannel, quitWorkerChannels[i], &workersDone)
 		} else {
-			go runFiniteWorker(workItems[i], resultsChannel, &workersDone)
+			go runFiniteWorker(works[i], resultsChannel, &workersDone)
 		}
 	}
 	registerDone.Add(1)
@@ -214,7 +214,7 @@ func Run(res ResultManager, workItems []WorkInfo, d time.Duration) {
 	go printWrites(res, printWritesChannel, &benchmarkDone)
 	time.Sleep(d)
 	for i := 0; i < numWorkers; i++ {
-		if workItems[i].MaxOps <= 0 {
+		if works[i].MaxOps <= 0 {
 			quitWorkerChannels[i] <- 0
 		}
 	}

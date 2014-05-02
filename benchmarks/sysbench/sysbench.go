@@ -23,7 +23,7 @@ type SysbenchInfo struct {
 	oltpNonIndexUpdates uint
 }
 
-// implements Workitem
+// implements Work
 type SysbenchTransaction struct {
 	Info           SysbenchInfo
 	Session        *mgo.Session
@@ -68,7 +68,7 @@ func runQuery(filter bson.M, projection bson.M, coll *mgo.Collection) {
 	}
 }
 
-func (s SysbenchTransaction) DoWork(c chan benchmark.Stats) {
+func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 	db := s.Session.DB(s.Dbname)
 	collectionIndex := s.RandSource.Int31n(int32(s.NumCollections))
 	coll := db.C(mongotools.GetCollectionString(s.Collname, int(collectionIndex)))
@@ -219,7 +219,7 @@ func main() {
 	numSeconds := flag.Uint64("numSeconds", 5, "number of seconds the benchmark is to run.")
 	numMaxTPS := flag.Uint64("numMaxTPS", 0, "number of maximum transactions to process. If 0, then unlimited")
 
-	// for the WorkItem
+	// for the Work
 	oltpRangeSize := flag.Uint("oltpRangeSize", 100, "size of range queries in each transaction")
 	oltpPointSelects := flag.Uint("oltpPointSelects", 10, "number of point queries by _id per transaction")
 	oltpSimpleRanges := flag.Uint("oltpSimpleRanges", 1, "number of simple range queries per transaction")
@@ -260,7 +260,7 @@ func main() {
 		copiedSession.SetSafe(&mgo.Safe{})
 		// allows transactions to be run on this session
 		copiedSession.SetMode(mgo.Strong, true)
-		var currItem benchmark.WorkItem = SysbenchTransaction{
+		var currItem benchmark.Work = SysbenchTransaction{
 			info,
 			copiedSession,
 			*dbname,

@@ -1,6 +1,7 @@
 package iibench
 
 import (
+	"flag"
 	"fmt"
 	"github.com/Tokutek/go-benchmark"
 	"labix.org/v2/mgo"
@@ -9,12 +10,17 @@ import (
 	"time"
 )
 
-//1000, 10000, 100000, 500
 const (
 	MaxNumCashRegisters = 1000
 	MaxNumProducts      = 10000
 	MaxNumCustomers     = 100000
 	MaxPrice            = 500.0
+)
+
+var (
+	queryResultLimit   = flag.Int("queryResultLimit", 10, "number of results queries should be limited to")
+	queriesPerInterval = flag.Uint64("queriesPerInterval", 100, "max queries per interval, 0 means unlimited")
+	queryInterval      = flag.Uint64("queryInterval", 1, "interval for queries, in seconds, meant to be used with -queriesPerInterval")
 )
 
 ////////////////////////////////////////////////////////////////
@@ -78,66 +84,67 @@ func (generator *IIBenchDocGenerator) MakeDoc() interface{} {
 		Price:          price}
 }
 
-// a WorkItem to run iibench queries
-type IIBenchQuery struct {
-	Session          *mgo.Session
-	Dbname           string
-	Collname         string
-	RandSource       *rand.Rand
-	StartTime        time.Time
-	QueryResultLimit int
-	NumQueriesSoFar  uint64
+// a Work to run iibench queries
+type QueryWork struct {
+	session         *mgo.Session
+	coll            *mgo.Collection
+	randSource      *rand.Rand
+	startTime       time.Time
+	numQueriesSoFar uint64
 }
 
-func (r IIBenchQuery) DoWork(c chan benchmark.Stats) {
-	db := r.Session.DB(r.Dbname)
-	coll := db.C(r.Collname)
-	customerID := r.RandSource.Int31n(MaxNumCustomers)
-	cashRegisterID := r.RandSource.Int31n(MaxNumCashRegisters)
-	price := r.RandSource.Float64()*MaxPrice + float64(customerID)/100.0
-	// generate a random time since r.StartTime
+func NewQueryWork(s *mgo.Session, db string, coll string) benchmark.WorkInfo {
+	qw := &QueryWork{session: s, coll: s.DB(db).C(coll), randSource: rand.New(rand.NewSource(time.Now().UnixNano())), startTime: time.Now()}
+	return benchmark.WorkInfo{qw, *queriesPerInterval, *queryInterval, 0}
+}
+
+func (qw *QueryWork) Do(c chan benchmark.Stats) {
+	customerID := qw.randSource.Int31n(MaxNumCustomers)
+	cashRegisterID := qw.randSource.Int31n(MaxNumCashRegisters)
+	price := qw.randSource.Float64()*MaxPrice + float64(customerID)/100.0
+	// generate a random time since qw.StartTime
 	// there is likely a better way to do this
-	since := time.Since(r.StartTime)
+	since := time.Since(qw.startTime)
 	sinceInNano := since.Nanoseconds()
 	var randomTime int64
 	if sinceInNano > 0 {
-		randomTime = r.RandSource.Int63n(sinceInNano)
+		randomTime = qw.randSource.Int63n(sinceInNano)
 	}
-	timeToQuery := r.StartTime.Add(time.Duration(randomTime))
+	timeToQuery := qw.startTime.Add(time.Duration(randomTime))
 
 	var query *mgo.Query
-	if r.NumQueriesSoFar%3 == 0 {
+	if qw.numQueriesSoFar%3 == 0 {
 		filter := bson.M{"$or": []bson.M{
 			bson.M{"pr": price, "ts": timeToQuery, "cid": bson.M{"$gte": customerID}},
 			bson.M{"pr": price, "ts": bson.M{"$gt": timeToQuery}},
 			bson.M{"pr": bson.M{"$gt": price}}}}
 		projection := bson.M{"pr": 1, "ts": 1, "cid": 1}
-		query = coll.Find(filter).Select(projection).Hint("pr", "ts", "cid")
-	} else if r.NumQueriesSoFar%3 == 1 {
+		query = qw.coll.Find(filter).Select(projection).Hint("pr", "ts", "cid")
+	} else if qw.numQueriesSoFar%3 == 1 {
 		filter := bson.M{"$or": []bson.M{
 			bson.M{"crid": cashRegisterID, "pr": price, "cid": bson.M{"$gte": customerID}},
 			bson.M{"crid": cashRegisterID, "pr": bson.M{"$gt": price}},
 			bson.M{"crid": bson.M{"$gt": cashRegisterID}}}}
 		projection := bson.M{"crid": 1, "pr": 1, "cid": 1}
-		query = coll.Find(filter).Select(projection).Hint("crid", "pr", "cid")
+		query = qw.coll.Find(filter).Select(projection).Hint("crid", "pr", "cid")
 	} else {
 		filter := bson.M{"$or": []bson.M{
 			bson.M{"pr": price, "cid": bson.M{"$gte": customerID}},
 			bson.M{"pr": bson.M{"$gt": price}}}}
 		projection := bson.M{"pr": 1, "cid": 1}
-		query = coll.Find(filter).Select(projection).Hint("pr", "cid")
+		query = qw.coll.Find(filter).Select(projection).Hint("pr", "cid")
 	}
 
 	var result bson.M
-	iter := query.Limit(r.QueryResultLimit).Iter()
+	iter := query.Limit(*queryResultLimit).Iter()
 	for iter.Next(&result) {
 	}
-	r.NumQueriesSoFar++
+	qw.numQueriesSoFar++
 	c <- benchmark.Stats{Queries: 1}
 }
 
-func (r IIBenchQuery) Close() {
-	r.Session.Close()
+func (qw *QueryWork) Close() {
+	qw.session.Close()
 }
 
 // implements ResultManager
