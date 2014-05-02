@@ -21,7 +21,6 @@ type DocGenerator interface {
 
 // implements Work
 type insertWork struct {
-	Session       *mgo.Session
 	Coll          *mgo.Collection
 	DocsPerInsert uint64
 	Gen           DocGenerator
@@ -47,10 +46,6 @@ func (w *insertWork) Do(c chan benchmark.Stats) {
 	c <- benchmark.Stats{Inserts: numInserted}
 }
 
-func (w *insertWork) Close() {
-	w.Session.Close()
-}
-
 // returns a WorkInfo that can be used for loading documents into a collection
 // This is essentially a helper function for the purpose of loading data into collections,
 // be it an iibench writer or a sysbench trickle loader. The caller defines how to generate
@@ -62,7 +57,6 @@ func MakeCollectionWriter(gen DocGenerator, session *mgo.Session, dbname string,
 	db := session.DB(dbname)
 	coll := db.C(collname)
 	writer := &insertWork{
-		session,
 		coll,
 		*docsPerInsert,
 		gen}

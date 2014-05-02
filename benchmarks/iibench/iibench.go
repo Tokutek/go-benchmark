@@ -88,7 +88,6 @@ func (g *DocGenerator) Generate() interface{} {
 
 // a Work to run iibench queries
 type QueryWork struct {
-	session         *mgo.Session
 	coll            *mgo.Collection
 	randSource      *rand.Rand
 	startTime       time.Time
@@ -96,7 +95,7 @@ type QueryWork struct {
 }
 
 func NewQueryWork(s *mgo.Session, db string, coll string) benchmark.WorkInfo {
-	qw := &QueryWork{session: s, coll: s.DB(db).C(coll), randSource: rand.New(rand.NewSource(time.Now().UnixNano())), startTime: time.Now()}
+	qw := &QueryWork{coll: s.DB(db).C(coll), randSource: rand.New(rand.NewSource(time.Now().UnixNano())), startTime: time.Now()}
 	return benchmark.WorkInfo{qw, *queriesPerInterval, *queryInterval, 0}
 }
 
@@ -143,10 +142,6 @@ func (qw *QueryWork) Do(c chan benchmark.Stats) {
 	}
 	qw.numQueriesSoFar++
 	c <- benchmark.Stats{Queries: 1}
-}
-
-func (qw *QueryWork) Close() {
-	qw.session.Close()
 }
 
 // implements ResultManager

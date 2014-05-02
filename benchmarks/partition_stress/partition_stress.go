@@ -24,8 +24,7 @@ type partitionInfo struct {
 // collection. To work, -partition=true must be used when creating
 // the benchmark, otherwise, this work will spit errors.
 type AddPartitionWork struct {
-	Session  *mgo.Session
-	Dbname   string
+	DB       *mgo.Database
 	Collname string
 	Interval time.Duration // interval between partition adds
 }
@@ -35,10 +34,9 @@ type AddPartitionWork struct {
 // For example, if a.Interval is set to one hour, and the last partition was created
 // 61 minutes ago, this function will add a partition
 func (a AddPartitionWork) Do(c chan benchmark.Stats) {
-	db := a.Session.DB(a.Dbname)
-	coll := db.C(a.Collname)
+	coll := a.DB.C(a.Collname)
 	var result partitionInfo
-	err := db.Run(bson.M{"getPartitionInfo": coll.Name}, &result)
+	err := a.DB.Run(bson.M{"getPartitionInfo": coll.Name}, &result)
 	if err == nil {
 		var numPartitions uint64
 		numPartitions = result.NumPartitions
@@ -48,7 +46,7 @@ func (a AddPartitionWork) Do(c chan benchmark.Stats) {
 		difference := currentTime.Sub(lastCreateTime)
 		if difference > a.Interval {
 			var addPartitionResult bson.M
-			err = db.Run(bson.M{"addPartition": coll.Name}, &addPartitionResult)
+			err = a.DB.Run(bson.M{"addPartition": coll.Name}, &addPartitionResult)
 			if err != nil {
 				fmt.Println("error while adding Partition, ", err)
 			}
@@ -58,17 +56,11 @@ func (a AddPartitionWork) Do(c chan benchmark.Stats) {
 	}
 }
 
-// closes the session used to add partitions
-func (a AddPartitionWork) Close() {
-	a.Session.Close()
-}
-
 // a Work used to drop partitions of a partitioned
 // collection. To work, -partition=true must be used when creating
 // the benchmark, otherwise, this work will spit errors.
 type DropPartitionWork struct {
-	Session  *mgo.Session
-	Dbname   string
+	DB       *mgo.Database
 	Collname string
 	Interval time.Duration // interval between partition adds
 }
@@ -78,10 +70,9 @@ type DropPartitionWork struct {
 // For example, if a.Interval is set to six hours, and the first partition was created
 // seven hours ago, this function will drop the first partition
 func (a DropPartitionWork) Do(c chan benchmark.Stats) {
-	db := a.Session.DB(a.Dbname)
-	coll := db.C(a.Collname)
+	coll := a.DB.C(a.Collname)
 	var result partitionInfo
-	err := db.Run(bson.M{"getPartitionInfo": coll.Name}, &result)
+	err := a.DB.Run(bson.M{"getPartitionInfo": coll.Name}, &result)
 	if err == nil {
 		var numPartitions uint64
 		numPartitions = result.NumPartitions
@@ -92,7 +83,7 @@ func (a DropPartitionWork) Do(c chan benchmark.Stats) {
 		if numPartitions > 0 && difference > a.Interval {
 			firstID := result.Partitions[0].Id
 			var dropPartitionResult bson.M
-			err = db.Run(bson.D{{"dropPartition", coll.Name}, {"id", firstID}}, &dropPartitionResult)
+			err = a.DB.Run(bson.D{{"dropPartition", coll.Name}, {"id", firstID}}, &dropPartitionResult)
 			if err != nil {
 				fmt.Println("error while dropping Partition, ", err)
 			}
@@ -100,8 +91,4 @@ func (a DropPartitionWork) Do(c chan benchmark.Stats) {
 	} else {
 		fmt.Println("error while getting Partition info, ", err)
 	}
-}
-
-func (a DropPartitionWork) Close() {
-	a.Session.Close()
 }

@@ -49,7 +49,7 @@ func main() {
 	workers := make([]benchmark.WorkInfo, 0, *numWriters+*numQueryThreads)
 	for i := 0; i < *numWriters; i++ {
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
+		defer copiedSession.Close()
 		var gen = iibench.NewDocGenerator()
 		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
 		workers = append(workers, mongotools.MakeCollectionWriter(gen, copiedSession, *dbname, currCollectionString, *numInsertsPerThread))
@@ -57,7 +57,7 @@ func main() {
 	for i := 0; i < *numQueryThreads; i++ {
 		currCollectionString := mongotools.GetCollectionString(*collname, i%*numCollections)
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
+		defer copiedSession.Close()
 		workers = append(workers, iibench.NewQueryWork(copiedSession, *dbname, currCollectionString))
 	}
 	benchmark.Run(res, workers, time.Duration(*numSeconds)*time.Second)

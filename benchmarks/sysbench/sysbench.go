@@ -176,10 +176,6 @@ func (s SysbenchTransaction) Do(c chan benchmark.Stats) {
 	c <- result
 }
 
-func (s SysbenchTransaction) Close() {
-	s.Session.Close()
-}
-
 // implements ResultManager
 type SysbenchResult struct {
 	NumTransactions     uint64
@@ -257,7 +253,7 @@ func main() {
 	var i uint
 	for i = 0; i < *numThreads; i++ {
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
+		defer copiedSession.Close()
 		// allows transactions to be run on this session
 		copiedSession.SetMode(mgo.Strong, true)
 		var currItem benchmark.Work = SysbenchTransaction{

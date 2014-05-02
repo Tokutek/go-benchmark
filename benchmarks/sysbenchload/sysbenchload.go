@@ -57,12 +57,6 @@ type SysbenchWriter struct {
 	writers []benchmark.WorkInfo
 }
 
-func (w SysbenchWriter) Close() {
-	for x := range w.writers {
-		w.writers[x].Work.Close()
-	}
-}
-
 func (w SysbenchWriter) Do(c chan benchmark.Stats) {
 	for x := range w.writers {
 		w.writers[x].Work.Do(c)
@@ -104,7 +98,7 @@ func main() {
 	var writers []SysbenchWriter = make([]SysbenchWriter, *numWriters)
 	for i := 0; i < *numCollections; i++ {
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
+		defer copiedSession.Close()
 		currCollectionString := mongotools.GetCollectionString(*collname, i)
 		var gen *SysbenchDocGenerator = new(SysbenchDocGenerator)
 		gen.RandSource = rand.New(rand.NewSource(time.Now().UnixNano()))

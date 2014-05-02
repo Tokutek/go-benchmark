@@ -41,7 +41,7 @@ func main() {
 	currCollectionString := mongotools.GetCollectionString(collname, 0)
 	for i := 0; i < numWriters; i++ {
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
+		defer copiedSession.Close()
 		var gen = iibench.NewDocGenerator()
 		gen.CharFieldLength = 100
 		gen.NumCharFields = 0
@@ -49,19 +49,19 @@ func main() {
 	}
 	for i := 0; i < numQueryThreads; i++ {
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
+		defer copiedSession.Close()
 		workers = append(workers, iibench.NewQueryWork(copiedSession, dbname, currCollectionString))
 	}
 	{
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
-		var addPartitionItem = partition_stress.AddPartitionWork{copiedSession, dbname, currCollectionString, time.Hour}
+		defer copiedSession.Close()
+		var addPartitionItem = partition_stress.AddPartitionWork{copiedSession.DB(dbname), currCollectionString, time.Hour}
 		workers = append(workers, benchmark.WorkInfo{addPartitionItem, 1, 1, 0})
 	}
 	{
 		copiedSession := session.Copy()
-		copiedSession.SetSafe(&mgo.Safe{})
-		var dropPartitionItem = partition_stress.DropPartitionWork{copiedSession, dbname, currCollectionString, 7 * time.Hour}
+		defer copiedSession.Close()
+		var dropPartitionItem = partition_stress.DropPartitionWork{copiedSession.DB(dbname), currCollectionString, 7 * time.Hour}
 		workers = append(workers, benchmark.WorkInfo{dropPartitionItem, 1, 1, 0})
 	}
 	// have this go for a looooooong time
