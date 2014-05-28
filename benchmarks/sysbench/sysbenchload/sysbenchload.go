@@ -52,8 +52,8 @@ var (
 	numCollections = flag.Int("numCollections", 16, "number of collections to simultaneously run on")
 
 	// for benchmark
-	numWriters              = flag.Int("numWriters", 16, "specify the number of writer threads")
-	numInsertsPerCollection = flag.Int("numInsertsPerCollection", 100, "number of inserts to be done per collection")
+	numWriters              = flag.Int("numWriters", 8, "specify the number of writer threads")
+	numInsertsPerCollection = flag.Int("numInsertsPerCollection", 10000000, "number of inserts to be done per collection")
 )
 
 func main() {

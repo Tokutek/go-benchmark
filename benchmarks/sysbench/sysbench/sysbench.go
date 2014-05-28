@@ -156,8 +156,8 @@ func (s SysbenchTransaction) Close() {
 
 // implements ResultManager
 type SysbenchResult struct {
-	NumTransactions     uint64 `type:"counter" report:"iter,cum,total"`
-	NumErrors           uint64 `type:"counter" report:"total"`
+	NumTransactions uint64 `type:"counter" report:"iter,cum,total"`
+	NumErrors       uint64 `type:"counter" report:"total"`
 }
 
 var (
@@ -169,9 +169,9 @@ var (
 	readOnly       = flag.Bool("readOnly", false, "if true, then updates excluded from benchmark")
 
 	// for benchmark
-	numThreads    = flag.Uint("numThreads", 16, "specify the number of threads")
-	numMaxInserts = flag.Int64("numMaxInserts", 100, "number of documents in each collection")
-	numSeconds    = flag.Uint64("numSeconds", 5, "number of seconds the benchmark is to run.")
+	numThreads    = flag.Uint("numThreads", 64, "specify the number of threads")
+	numMaxInserts = flag.Int64("numMaxInserts", 10000000, "number of documents in each collection")
+	numSeconds    = flag.Uint64("numSeconds", 600, "number of seconds the benchmark is to run.")
 	numMaxTPS     = flag.Uint64("numMaxTPS", 0, "number of maximum transactions to process. If 0, then unlimited")
 
 	// for the Work
