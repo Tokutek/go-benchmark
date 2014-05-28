@@ -19,7 +19,7 @@ var (
 	// for benchmark
 	numWriters          = flag.Int("numWriterThreads", 1, "specify the number of writer threads")
 	numQueryThreads     = flag.Int("numQueryThreads", 0, "specify the number of threads to perform queries")
-	numSeconds          = flag.Int64("numSeconds", 5, "number of seconds the benchmark is to run. If this value is > 0, then numInsertsPerThread MUST be 0, and vice versa")
+	numSeconds          = flag.Int64("numSeconds", 3600, "number of seconds the benchmark is to run. If this value is > 0, then numInsertsPerThread MUST be 0, and vice versa")
 	numInsertsPerThread = flag.Int("numInsertsPerThread", 0, "number of inserts to be done per thread. If this value is > 0, then numSeconds MUST be 0 and numQueryThreads MUST be 0")
 )
 

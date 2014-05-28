@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	docsPerInsert      = flag.Int("docsPerInsert", 10, "specify the number of documents per insert")
+	docsPerInsert      = flag.Int("docsPerInsert", 1000, "specify the number of documents per insert")
 	insertsPerInterval = flag.Int("insertsPerInterval", 0, "max inserts per interval, 0 means unlimited")
 	insertInterval     = flag.Int("insertInterval", 1, "interval for inserts, in seconds, meant to be used with -insertsPerInterval")
 )
