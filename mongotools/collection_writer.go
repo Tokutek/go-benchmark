@@ -3,6 +3,7 @@ package mongotools
 import (
 	"flag"
 	"github.com/Tokutek/go-benchmark"
+	"github.com/Tokutek/go-benchmark/benchmarks/iibench"
 	"labix.org/v2/mgo"
 	"log"
 )
@@ -40,7 +41,7 @@ func (w *insertWork) Do(c chan<- interface{}) {
 		}
 		numInserted += len(docs)
 	}
-	c <- benchmark.Stats{Inserts: uint64(numInserted)}
+	c <- iibench.Result{NumInserts: uint64(numInserted)}
 }
 
 func (w *insertWork) Close() {

@@ -93,6 +93,13 @@ type QueryWork struct {
 	numQueriesSoFar uint64
 }
 
+// implements ResultManager
+// used to print results of an iibench run
+type Result struct {
+	NumInserts uint64 `type:"counter" report:"iter,cum,total"`
+	NumQueries uint64 `type:"counter" report:"iter,cum,total"`
+}
+
 func NewQueryWork(s *mgo.Session, db string, coll string) benchmark.WorkInfo {
 	qw := &QueryWork{coll: s.DB(db).C(coll), randSource: rand.New(rand.NewSource(time.Now().UnixNano())), startTime: time.Now()}
 	return benchmark.WorkInfo{qw, *queriesPerInterval, *queryInterval, 0}
@@ -140,15 +147,8 @@ func (qw *QueryWork) Do(c chan<- interface{}) {
 	for iter.Next(&result) {
 	}
 	qw.numQueriesSoFar++
-	c <- benchmark.Stats{Queries: 1}
+	c <- Result{NumQueries: 1}
 }
 
 func (qw *QueryWork) Close() {
-}
-
-// implements ResultManager
-// used to print results of an iibench run
-type Result struct {
-	NumInserts          uint64 `type:"counter" report:"iter,cum,total"`
-	NumQueries          uint64 `type:"counter" report:"iter,cum,total"`
 }
