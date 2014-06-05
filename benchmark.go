@@ -7,16 +7,6 @@ import (
 	"time"
 )
 
-// Basic stats for all benchmarks, some day should make each benchmark define its own.
-type Stats struct {
-	Inserts    uint64 `type:"counter" report:"iter,cum,total"`
-	Deletes    uint64 `type:"counter" report:"iter,cum,total"`
-	Updates    uint64 `type:"counter" report:"iter,cum,total"`
-	Queries    uint64 `type:"counter" report:"iter,cum,total"`
-	Operations uint64 `type:"counter" report:"iter,cum,total"`
-	Errors     uint64 `type:"counter" report:"total"`
-}
-
 // An interface that defines work to be run on a thread.
 type Work interface {
 	// While the benchmark is running, Do is called repeatedly.
