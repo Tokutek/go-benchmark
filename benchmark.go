@@ -1,7 +1,7 @@
 package benchmark
 
 import (
-	"github.com/leifwalsh/olbermann"
+	"github.com/Tokutek/olbermann"
 	"log"
 	"sync"
 	"time"
