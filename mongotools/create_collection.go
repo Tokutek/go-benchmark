@@ -106,6 +106,16 @@ func collectionExists(s *mgo.Session, dbname string, collname string) bool {
 	return n > 0
 }
 
+func applyTokuIndexOptions(db *mgo.Database, collname string, options tokuMXCreateOptions) {
+	var result bson.M
+	var optBson bson.M
+	optBson = bson.M{"compression": options.CompressionType , "pageSize" : options.NodeSize, "readPageSize" : options.BasementSize}
+	err := db.Run(bson.D{{"reIndex", collname}, {"index", "*"}, {"options" , optBson}}, result)
+	if err != nil {
+		log.Fatal("Failed to set options on indexes, received ", err)
+	}
+}
+
 // Creates a collection, but first checks if the collection exists. If it does,
 // we log a fatal error and end the program
 func createCollection(s *mgo.Session, dbname string, collname string, tokuOptions tokuMXCreateOptions, indexes []mgo.Index) {
@@ -124,6 +134,9 @@ func createCollection(s *mgo.Session, dbname string, collname string, tokuOption
 		if err != nil {
 			log.Fatal("Received error ", err, " when adding index ", indexes[x])
 		}
+	}
+	if IsTokuMX(db) {
+		applyTokuIndexOptions(db, collname, tokuOptions)
 	}
 }
 
