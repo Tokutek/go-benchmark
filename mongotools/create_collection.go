@@ -110,7 +110,7 @@ func applyTokuIndexOptions(db *mgo.Database, collname string, options tokuMXCrea
 	var result bson.M
 	var optBson bson.M
 	optBson = bson.M{"compression": options.CompressionType , "pageSize" : options.NodeSize, "readPageSize" : options.BasementSize}
-	err := db.Run(bson.D{{"reIndex", collname}, {"index", "*"}, {"options" , optBson}}, result)
+	err := db.Run(bson.D{{"reIndex", collname}, {"index", "*"}, {"options" , optBson}}, &result)
 	if err != nil {
 		log.Fatal("Failed to set options on indexes, received ", err)
 	}
