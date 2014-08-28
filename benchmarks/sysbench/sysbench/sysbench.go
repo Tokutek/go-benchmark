@@ -137,6 +137,7 @@ func (s SysbenchTransaction) Do(c chan<- interface{}) {
 	err = coll.Insert(sysbench.Doc{
 		uint64(randID),
 		s.RandSource.Int(),
+		s.RandSource.Int(),
 		sysbench.CString(s.RandSource),
 		sysbench.PadString(s.RandSource)})
 	if err != nil {

@@ -21,6 +21,7 @@ func (generator *SysbenchDocGenerator) Generate() interface{} {
 	ret := sysbench.Doc{
 		generator.currID,
 		generator.RandSource.Int(),
+		generator.RandSource.Int(),
 		sysbench.CString(generator.RandSource),
 		sysbench.PadString(generator.RandSource)}
 	generator.currID++

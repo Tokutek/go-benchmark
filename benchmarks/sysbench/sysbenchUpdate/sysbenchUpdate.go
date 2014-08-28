@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/Tokutek/go-benchmark"
-	"github.com/Tokutek/go-benchmark/benchmarks/sysbench"
 	"github.com/Tokutek/go-benchmark/mongotools"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -52,7 +51,7 @@ func (s SysbenchUpdateInfo) Do(c chan<- interface{}) {
 		var err error
 		if s.doFindAndModify {
 			change := mgo.Change{
-				Update:    bson.M{"$set": bson.M{"c": sysbench.CString(s.RandSource)}},
+				Update:    bson.M{"$inc": bson.M{"d": 1}},
 				ReturnNew: true,
 			}
 			var info *mgo.ChangeInfo
@@ -60,7 +59,7 @@ func (s SysbenchUpdateInfo) Do(c chan<- interface{}) {
 			info, err = coll.Find(bson.M{"_id": randID}).Apply(change, &doc)
 			info = info // to make the compiler shut up about unused variable info.
 		} else {
-			err = coll.Update(bson.M{"_id": randID}, bson.M{"$set": bson.M{"c": sysbench.CString(s.RandSource)}})
+			err = coll.Update(bson.M{"_id": randID}, bson.M{"$inc": bson.M{"d": 1}})
 		}
 		if err != nil {
 			// we got an error

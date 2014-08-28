@@ -8,6 +8,7 @@ import (
 type Doc struct {
 	Id  uint64 "_id"
 	K   int    "k"
+	D   int    "d"
 	C   string "c"
 	Pad string "pad"
 }
